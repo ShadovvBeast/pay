@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { ApiKeyManagement } from './ApiKeyManagement';
 
 interface SettingsFormData {
   shopName: string;
@@ -84,29 +85,60 @@ export const Settings: React.FC = () => {
     setMessage(null);
   };
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'api-keys'>('profile');
+
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Settings</h2>
-        <p className="text-gray-600">Manage your shop and payment configuration</p>
+        <p className="text-gray-600">Manage your shop configuration and API access</p>
       </div>
 
-      {message && (
-        <div className={`mb-6 p-4 rounded-xl ${
-          message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-800' 
-            : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
-          <div className="flex items-center">
-            <span className="text-xl mr-2">
-              {message.type === 'success' ? '✅' : '❌'}
-            </span>
-            <p className="font-medium">{message.text}</p>
-          </div>
-        </div>
-      )}
+      {/* Tab Navigation */}
+      <div className="mb-6">
+        <nav className="flex space-x-8 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'profile'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Shop Profile
+          </button>
+          <button
+            onClick={() => setActiveTab('api-keys')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'api-keys'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            API Keys
+          </button>
+        </nav>
+      </div>
 
-      <div className="card">
+      {/* Profile Tab */}
+      {activeTab === 'profile' && (
+        <>
+          {message && (
+            <div className={`mb-6 p-4 rounded-xl ${
+              message.type === 'success' 
+                ? 'bg-green-50 border border-green-200 text-green-800' 
+                : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
+              <div className="flex items-center">
+                <span className="text-xl mr-2">
+                  {message.type === 'success' ? '✅' : '❌'}
+                </span>
+                <p className="font-medium">{message.text}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="card">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-medium text-gray-900">Shop Information</h3>
           {!isEditing && (
@@ -253,7 +285,12 @@ export const Settings: React.FC = () => {
             </button>
           </div>
         )}
-      </div>
+          </div>
+        </>
+      )}
+
+      {/* API Keys Tab */}
+      {activeTab === 'api-keys' && <ApiKeyManagement />}
     </div>
   );
 };
