@@ -80,9 +80,10 @@ class ApiKeyService {
         throw new Error('No rows returned from API key creation');
       }
 
+      const row = result.rows[0];
       const apiKey: ApiKey = {
-        ...result.rows[0],
-        permissions: JSON.parse(result.rows[0].permissions)
+        ...row,
+        permissions: Array.isArray(row.permissions) ? row.permissions : JSON.parse(row.permissions)
       };
 
       console.log('API key created successfully:', { id: apiKey.id, name: apiKey.name });
@@ -141,7 +142,7 @@ class ApiKeyService {
         name: apiKeyData.name,
         keyHash: apiKeyData.key_hash,
         prefix: apiKeyData.prefix,
-        permissions: JSON.parse(apiKeyData.permissions),
+        permissions: Array.isArray(apiKeyData.permissions) ? apiKeyData.permissions : JSON.parse(apiKeyData.permissions),
         isActive: apiKeyData.is_active,
         lastUsedAt: apiKeyData.last_used_at,
         expiresAt: apiKeyData.expires_at,
@@ -178,10 +179,34 @@ class ApiKeyService {
 
     const result = await db.query(query, [userId]);
 
-    return result.rows.map(row => ({
-      ...row,
-      permissions: JSON.parse(row.permissions)
-    }));
+
+    return result.rows.map((row, index) => {
+      // Handle JSONB - PostgreSQL returns JSONB as parsed objects, not strings
+      let permissions;
+      if (Array.isArray(row.permissions)) {
+        // JSONB returns as parsed array - use directly
+        permissions = row.permissions;
+      } else if (typeof row.permissions === 'string') {
+        // JSON string - parse it
+        try {
+          permissions = JSON.parse(row.permissions);
+        } catch (error) {
+          console.error('Failed to parse permissions JSON for API key:', row.id, error);
+          permissions = [];
+        }
+      } else if (row.permissions && typeof row.permissions === 'object') {
+        // Already an object - use directly
+        permissions = row.permissions;
+      } else {
+        // Fallback to empty array
+        permissions = [];
+      }
+      
+      return {
+        ...row,
+        permissions
+      };
+    });
   }
 
   /**
@@ -231,9 +256,10 @@ class ApiKeyService {
       return null;
     }
 
+    const row = result.rows[0];
     return {
-      ...result.rows[0],
-      permissions: JSON.parse(result.rows[0].permissions)
+      ...row,
+      permissions: Array.isArray(row.permissions) ? row.permissions : JSON.parse(row.permissions)
     };
   }
 
