@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { config } from '../config';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -117,9 +117,37 @@ export class DatabaseService {
   }
 
   /**
+   * Get list of available migrations from filesystem
+   */
+  public getAvailableMigrations(): string[] {
+    const moduleDir = dirname(fileURLToPath(import.meta.url));
+    const migrationDirCandidates = [
+      join(process.cwd(), 'backend', 'database', 'migrations'), // when run from repo root
+      join(process.cwd(), 'database', 'migrations'),             // when run from backend/
+      join(moduleDir, '..', 'database', 'migrations'),           // relative to this file
+    ];
+    const foundDir = migrationDirCandidates.find(p => existsSync(p));
+    
+    if (!foundDir) {
+      throw new Error(`Migration directory not found. Tried: ${migrationDirCandidates.join(', ')}`);
+    }
+    
+    // Read all .sql files from migrations directory and sort them
+    const allFiles = readdirSync(foundDir);
+    const migrationFiles = allFiles
+      .filter(file => {
+        // Only include .sql files that follow the naming convention: NNN_name.sql
+        return file.endsWith('.sql') && /^\d{3}_.*\.sql$/.test(file);
+      })
+      .sort(); // Sort alphabetically (001_, 002_, 003_, etc.)
+    
+    return migrationFiles;
+  }
+
+  /**
    * Run database migrations
    */
-  public async runMigrations(): Promise<void> {
+  public async runMigrations(dryRun: boolean = false): Promise<void> {
     try {
       console.log('Running database migrations...');
       
@@ -139,7 +167,7 @@ export class DatabaseService {
       
       const executedNames = new Set(executedMigrations.rows.map(row => row.migration_name));
 
-      // Read migration files - resolve robustly regardless of CWD
+      // Read migration files dynamically from filesystem
       const moduleDir = dirname(fileURLToPath(import.meta.url));
       const migrationDirCandidates = [
         join(process.cwd(), 'backend', 'database', 'migrations'), // when run from repo root
@@ -147,11 +175,29 @@ export class DatabaseService {
         join(moduleDir, '..', 'database', 'migrations'),           // relative to this file
       ];
       const foundDir = migrationDirCandidates.find(p => existsSync(p));
-      const migrationsDir: string = foundDir ? foundDir : migrationDirCandidates[0];
-      const migrationFiles = [
-        '001_initial_schema.sql',
-        '002_extend_transaction_statuses.sql'
-      ]; // Add more migrations here as needed
+      
+      if (!foundDir) {
+        throw new Error(`Migration directory not found. Tried: ${migrationDirCandidates.join(', ')}`);
+      }
+      
+      const migrationsDir: string = foundDir;
+      
+      // Read all .sql files from migrations directory and sort them
+      const allFiles = readdirSync(migrationsDir);
+      const migrationFiles = allFiles
+        .filter(file => {
+          // Only include .sql files that follow the naming convention: NNN_name.sql
+          return file.endsWith('.sql') && /^\d{3}_.*\.sql$/.test(file);
+        })
+        .sort(); // Sort alphabetically (001_, 002_, 003_, etc.)
+      
+      if (migrationFiles.length === 0) {
+        console.log('No migration files found in', migrationsDir);
+        console.log('Migration files should follow the pattern: NNN_description.sql (e.g., 001_initial_schema.sql)');
+        return;
+      }
+      
+      console.log(`Found ${migrationFiles.length} migration files:`, migrationFiles);
 
       for (const filename of migrationFiles) {
         const migrationName = filename.replace('.sql', '');
@@ -165,7 +211,17 @@ export class DatabaseService {
         
         try {
           const migrationPath = join(migrationsDir, filename);
+          
+          if (!existsSync(migrationPath)) {
+            throw new Error(`Migration file not found: ${migrationPath}`);
+          }
+          
           const migrationSQL = readFileSync(migrationPath, 'utf8');
+          
+          if (!migrationSQL.trim()) {
+            console.warn(`Migration ${migrationName} is empty, skipping`);
+            continue;
+          }
           
           await this.transaction(async (client) => {
             // Execute the migration SQL
@@ -177,10 +233,10 @@ export class DatabaseService {
             );
           });
           
-          console.log(`Migration ${migrationName} executed successfully`);
+          console.log(`✅ Migration ${migrationName} executed successfully`);
         } catch (error) {
-          console.error(`Failed to execute migration ${migrationName}:`, error);
-          throw error;
+          console.error(`❌ Failed to execute migration ${migrationName}:`, error);
+          throw new Error(`Migration ${migrationName} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 
