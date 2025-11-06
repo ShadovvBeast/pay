@@ -1,7 +1,7 @@
 import { db } from './database.js';
 import { hashPassword } from '../utils/password.js';
 import type { ApiKey, CreateApiKeyData, ApiKeyPermission } from '../types/index.js';
-import crypto from 'crypto';
+// Using Bun's built-in crypto methods
 
 /**
  * API Key Service
@@ -10,12 +10,13 @@ import crypto from 'crypto';
 class ApiKeyService {
   
   /**
-   * Generate a new API key
+   * Generate a new API key using Bun's native crypto
    */
   generateApiKey(): string {
     // Format: sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (40 chars total)
-    const randomBytes = crypto.randomBytes(16);
-    const keyPart = randomBytes.toString('hex'); // 32 chars
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const keyPart = Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
     return `sb0_live_${keyPart}`;
   }
 
@@ -37,31 +38,59 @@ class ApiKeyService {
    * Create a new API key
    */
   async createApiKey(data: CreateApiKeyData): Promise<{ apiKey: ApiKey; key: string }> {
-    const key = this.generateApiKey();
-    const keyHash = await this.hashApiKey(key);
-    const prefix = this.getKeyPrefix(key);
+    try {
+      console.log('Generating API key...');
+      const key = this.generateApiKey();
+      console.log('Generated key prefix:', key.substring(0, 16));
+      
+      console.log('Hashing API key...');
+      const keyHash = await this.hashApiKey(key);
+      console.log('Key hashed successfully');
+      
+      const prefix = this.getKeyPrefix(key);
+      console.log('Key prefix:', prefix);
 
-    const query = `
-      INSERT INTO api_keys (user_id, name, key_hash, prefix, permissions, expires_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `;
+      const query = `
+        INSERT INTO api_keys (user_id, name, key_hash, prefix, permissions, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `;
 
-    const result = await db.query(query, [
-      data.userId,
-      data.name,
-      keyHash,
-      prefix,
-      JSON.stringify(data.permissions),
-      data.expiresAt
-    ]);
+      const queryParams = [
+        data.userId,
+        data.name,
+        keyHash,
+        prefix,
+        JSON.stringify(data.permissions),
+        data.expiresAt
+      ];
 
-    const apiKey: ApiKey = {
-      ...result.rows[0],
-      permissions: JSON.parse(result.rows[0].permissions)
-    };
+      console.log('Executing database query with params:', {
+        userId: data.userId,
+        name: data.name,
+        prefix,
+        permissionsCount: data.permissions.length,
+        expiresAt: data.expiresAt
+      });
 
-    return { apiKey, key };
+      const result = await db.query(query, queryParams);
+      console.log('Database query successful, rows returned:', result.rows.length);
+
+      if (result.rows.length === 0) {
+        throw new Error('No rows returned from API key creation');
+      }
+
+      const apiKey: ApiKey = {
+        ...result.rows[0],
+        permissions: JSON.parse(result.rows[0].permissions)
+      };
+
+      console.log('API key created successfully:', { id: apiKey.id, name: apiKey.name });
+      return { apiKey, key };
+    } catch (error) {
+      console.error('Error in createApiKey:', error);
+      throw error;
+    }
   }
 
   /**
@@ -95,9 +124,9 @@ class ApiKeyService {
         return { isValid: false, error: 'API key has expired' };
       }
 
-      // Verify the actual key hash
-      const bcrypt = await import('bcrypt');
-      const isKeyValid = await bcrypt.compare(key, apiKeyData.key_hash);
+      // Verify the actual key hash using Bun's password verification
+      const { verifyPassword } = await import('../utils/password.js');
+      const isKeyValid = await verifyPassword(key, apiKeyData.key_hash);
 
       if (!isKeyValid) {
         return { isValid: false, error: 'Invalid API key' };

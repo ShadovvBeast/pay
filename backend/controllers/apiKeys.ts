@@ -108,7 +108,9 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
         expiresAt: requestData.expiresAt ? new Date(requestData.expiresAt) : undefined
       };
 
+      console.log('Creating API key with data:', createData);
       const result = await apiKeyService.createApiKey(createData);
+      console.log('API key created successfully:', { id: result.apiKey.id, name: result.apiKey.name });
 
       set.status = 201;
       
@@ -128,11 +130,17 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
 
     } catch (error) {
       console.error('API key creation error:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        requestData
+      });
+      
       set.status = 500;
       const errorResponse: ErrorResponse = {
         error: {
           code: 'INTERNAL_ERROR',
-          message: 'Failed to create API key'
+          message: error instanceof Error ? `Failed to create API key: ${error.message}` : 'Failed to create API key'
         },
         timestamp: new Date().toISOString(),
         requestId: crypto.randomUUID()
