@@ -6,6 +6,9 @@ import { config } from './config';
 import { db } from './services/database';
 import { authController } from './controllers/auth';
 import { paymentController } from './controllers/payment';
+import { apiKeyController } from './controllers/apiKeys';
+import { publicApiController } from './controllers/publicApi';
+import { docsController } from './controllers/docs';
 
 // Initialize database before starting server
 async function startServer() {
@@ -43,6 +46,9 @@ async function startServer() {
       })
       .use(authController)
       .use(paymentController)
+      .use(apiKeyController)
+      .use(docsController)
+      .group('/api', (app) => app.use(publicApiController))
       .listen(config.server.port);
 
     console.log(`🦊 Elysia is running at http://localhost:${app.server?.port}`);

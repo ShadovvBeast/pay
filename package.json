@@ -1,0 +1,47 @@
+{
+  "name": "sb0-pay",
+  "version": "0.3.0",
+  "description": "SB0 Pay - Comprehensive Payment Processing Platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=backend",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "db:init": "bun scripts/db-cli.ts init",
+    "db:migrate": "bun scripts/db-cli.ts migrate",
+    "db:status": "bun scripts/db-cli.ts status",
+    "db:reset": "bun scripts/db-cli.ts reset"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "typescript": "^5.2.0",
+    "@types/node": "^20.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/sb0-pay.git"
+  },
+  "keywords": [
+    "payment",
+    "processing",
+    "api",
+    "fintech",
+    "allpay"
+  ],
+  "author": "SB0 Pay Team",
+  "license": "MIT"
+}

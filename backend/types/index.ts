@@ -23,6 +23,15 @@ export interface Transaction {
   paymentUrl: string;
   allpayTransactionId: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'partially_refunded';
+  description?: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  webhookUrl?: string;
+  metadata?: Record<string, any>;
+  apiKeyId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +50,15 @@ export interface CreateTransactionData {
   currency: string;
   paymentUrl: string;
   allpayTransactionId?: string;
+  description?: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  webhookUrl?: string;
+  metadata?: Record<string, any>;
+  apiKeyId?: string;
 }
 
 export interface PaymentResponse {
@@ -118,4 +136,101 @@ export interface AllPayApiError extends Error {
   code: string;
   statusCode?: number;
   response?: any;
+}
+
+// API Key Management Types
+export interface ApiKey {
+  id: string;
+  userId: string;
+  name: string;
+  keyHash: string;
+  prefix: string; // First 8 chars for identification (e.g., "sb0_live_")
+  permissions: ApiKeyPermission[];
+  isActive: boolean;
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateApiKeyData {
+  userId: string;
+  name: string;
+  permissions: ApiKeyPermission[];
+  expiresAt?: Date;
+}
+
+export interface ApiKeyPermission {
+  resource: 'payments' | 'transactions' | 'webhooks' | 'profile';
+  actions: ('create' | 'read' | 'update' | 'delete')[];
+}
+
+export interface ApiKeyResponse {
+  id: string;
+  name: string;
+  key: string; // Only returned on creation
+  prefix: string;
+  permissions: ApiKeyPermission[];
+  isActive: boolean;
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  createdAt: Date;
+}
+
+export interface ApiKeyListResponse {
+  id: string;
+  name: string;
+  prefix: string;
+  permissions: ApiKeyPermission[];
+  isActive: boolean;
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  createdAt: Date;
+}
+
+// Public API Request/Response Types
+export interface PublicCreatePaymentRequest {
+  amount: number;
+  currency?: string;
+  description?: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  webhookUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface PublicPaymentResponse {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  paymentUrl: string;
+  qrCodeDataUrl?: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface PublicTransactionResponse {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicErrorResponse {
+  error: {
+    code: string;
+    message: string;
+    type: 'authentication_error' | 'invalid_request' | 'api_error' | 'rate_limit_error';
+  };
+  timestamp: string;
+  requestId: string;
 }

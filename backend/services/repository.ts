@@ -158,9 +158,13 @@ export class TransactionRepository {
    */
   public async create(transactionData: CreateTransactionData): Promise<Transaction> {
     const query = `
-      INSERT INTO transactions (user_id, amount, currency, payment_url, allpay_transaction_id)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, user_id, amount, currency, payment_url, allpay_transaction_id, status, created_at, updated_at
+      INSERT INTO transactions (
+        user_id, amount, currency, payment_url, allpay_transaction_id,
+        description, customer_email, customer_name, customer_phone,
+        success_url, cancel_url, webhook_url, metadata, api_key_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *
     `;
 
     const values = [
@@ -168,7 +172,16 @@ export class TransactionRepository {
       transactionData.amount,
       transactionData.currency,
       transactionData.paymentUrl,
-      transactionData.allpayTransactionId || null
+      transactionData.allpayTransactionId || null,
+      transactionData.description || null,
+      transactionData.customerEmail || null,
+      transactionData.customerName || null,
+      transactionData.customerPhone || null,
+      transactionData.successUrl || null,
+      transactionData.cancelUrl || null,
+      transactionData.webhookUrl || null,
+      transactionData.metadata ? JSON.stringify(transactionData.metadata) : null,
+      transactionData.apiKeyId || null
     ];
 
     const result = await db.queryOne<any>(query, values);
@@ -191,6 +204,15 @@ export class TransactionRepository {
       paymentUrl: row.payment_url,
       allpayTransactionId: row.allpay_transaction_id,
       status: row.status,
+      description: row.description,
+      customerEmail: row.customer_email,
+      customerName: row.customer_name,
+      customerPhone: row.customer_phone,
+      successUrl: row.success_url,
+      cancelUrl: row.cancel_url,
+      webhookUrl: row.webhook_url,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      apiKeyId: row.api_key_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -201,7 +223,7 @@ export class TransactionRepository {
    */
   public async findById(id: string): Promise<Transaction | null> {
     const query = `
-      SELECT id, user_id, amount, currency, payment_url, allpay_transaction_id, status, created_at, updated_at
+      SELECT *
       FROM transactions
       WHERE id = $1
     `;
@@ -219,7 +241,7 @@ export class TransactionRepository {
    */
   public async findByAllPayId(allpayTransactionId: string): Promise<Transaction | null> {
     const query = `
-      SELECT id, user_id, amount, currency, payment_url, allpay_transaction_id, status, created_at, updated_at
+      SELECT *
       FROM transactions
       WHERE allpay_transaction_id = $1
     `;
@@ -240,7 +262,7 @@ export class TransactionRepository {
       UPDATE transactions 
       SET status = $2, updated_at = NOW()
       WHERE id = $1
-      RETURNING id, user_id, amount, currency, payment_url, allpay_transaction_id, status, created_at, updated_at
+      RETURNING *
     `;
 
     const result = await db.queryOne<any>(query, [id, status]);

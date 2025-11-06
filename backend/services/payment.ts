@@ -11,6 +11,12 @@ export interface CreatePaymentRequest {
   amount: number;
   description?: string;
   customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  webhookUrl?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface PaymentCreationResult {
@@ -31,10 +37,11 @@ export class PaymentService {
    */
   async createPayment(
     user: User,
-    request: CreatePaymentRequest
+    request: CreatePaymentRequest,
+    apiKeyId?: string
   ): Promise<PaymentCreationResult> {
     return Promise.race([
-      this._createPaymentInternal(user, request),
+      this._createPaymentInternal(user, request, apiKeyId),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Payment creation timeout')), 10000)
       )
@@ -43,7 +50,8 @@ export class PaymentService {
 
   private async _createPaymentInternal(
     user: User,
-    request: CreatePaymentRequest
+    request: CreatePaymentRequest,
+    apiKeyId?: string
   ): Promise<PaymentCreationResult> {
     try {
       // Validate amount
@@ -81,7 +89,16 @@ export class PaymentService {
         amount: request.amount,
         currency: user.merchantConfig.currency || 'ILS',
         paymentUrl: paymentUrl,
-        allpayTransactionId: allPayOrderId
+        allpayTransactionId: allPayOrderId,
+        description: request.description,
+        customerEmail: request.customerEmail,
+        customerName: request.customerName,
+        customerPhone: request.customerPhone,
+        successUrl: request.successUrl,
+        cancelUrl: request.cancelUrl,
+        webhookUrl: request.webhookUrl,
+        metadata: request.metadata,
+        apiKeyId: apiKeyId
       });
 
       // Generate QR code for the payment URL

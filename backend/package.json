@@ -1,0 +1,50 @@
+{
+  "name": "@sb0-pay/backend",
+  "version": "0.3.0",
+  "description": "SB0 Pay Backend API Server",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "build": "bun build index.ts --outdir=dist --target=bun",
+    "start": "bun index.ts",
+    "start:prod": "NODE_ENV=production bun index.ts",
+    "test": "bun test **/*.test.ts",
+    "test:watch": "bun test --watch **/*.test.ts",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "elysia": "^0.8.17",
+    "@elysiajs/cors": "^0.8.0",
+    "@elysiajs/cookie": "^0.8.0",
+    "@elysiajs/jwt": "^0.8.0",
+    "pg": "^8.11.3",
+    "bcrypt": "^5.1.1",
+    "qrcode": "^1.5.3",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.10.7",
+    "@types/bcrypt": "^5.0.2",
+    "@types/qrcode": "^1.5.5",
+    "@types/node": "^20.8.0",
+    "bun-types": "^1.0.0",
+    "eslint": "^8.52.0",
+    "@typescript-eslint/eslint-plugin": "^6.9.0",
+    "@typescript-eslint/parser": "^6.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "api",
+    "payment",
+    "backend",
+    "elysia",
+    "typescript"
+  ]
+}
