@@ -56,7 +56,7 @@ describe('Transaction Model Validation', () => {
   
   describe('validateCurrency', () => {
     it('should validate correct currency codes', () => {
-      const validCurrencies = ['ILS', 'USD', 'EUR', 'GBP', 'JPY'];
+      const validCurrencies = ['ILS', 'USD', 'EUR', 'GBP', 'JPY', 'UGX'];
       
       validCurrencies.forEach(currency => {
         expect(validateCurrency(currency)).toBe(true);

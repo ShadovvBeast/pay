@@ -28,7 +28,8 @@ export const Settings: React.FC = () => {
   const currencies = [
     { value: 'ILS', label: 'Israeli Shekel (₪)' },
     { value: 'USD', label: 'US Dollar ($)' },
-    { value: 'EUR', label: 'Euro (€)' }
+    { value: 'EUR', label: 'Euro (€)' },
+    { value: 'UGX', label: 'Ugandan Shilling (USh)' }
   ];
 
   const languages = [

@@ -268,7 +268,8 @@ export function formatTransactionAmount(amount: number, currency: string): strin
         'ILS': '₪',
         'USD': '$',
         'EUR': '€',
-        'GBP': '£'
+        'GBP': '£',
+        'UGX': 'USh'
     };
 
     const symbol = currencySymbols[currency.toUpperCase()] || currency;

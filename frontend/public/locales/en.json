@@ -185,7 +185,8 @@
     "currencies": {
       "ILS": "Israeli Shekel (₪)",
       "USD": "US Dollar ($)",
-      "EUR": "Euro (€)"
+      "EUR": "Euro (€)",
+      "UGX": "Ugandan Shilling (USh)"
     },
     "languages": {
       "he": "עברית (Hebrew)",

@@ -320,6 +320,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             <option value="ILS">Israeli Shekel (₪)</option>
             <option value="USD">US Dollar ($)</option>
             <option value="EUR">Euro (€)</option>
+            <option value="UGX">Ugandan Shilling (USh)</option>
           </select>
         </div>
 

@@ -6,6 +6,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   ILS: '₪',
   USD: '$',
   EUR: '€',
+  UGX: 'USh',
 };
 
 export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({

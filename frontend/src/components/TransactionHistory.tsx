@@ -19,7 +19,8 @@ const formatCurrency = (amount: number, currency: string): string => {
     'ILS': '₪',
     'USD': '$',
     'EUR': '€',
-    'GBP': '£'
+    'GBP': '£',
+    'UGX': 'USh'
   };
   
   const symbol = currencySymbols[currency.toUpperCase()] || currency;

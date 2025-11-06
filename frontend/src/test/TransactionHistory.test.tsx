@@ -203,12 +203,20 @@ describe('TransactionHistory', () => {
         status: 'failed',
         createdAt: '2024-01-13T12:15:00Z',
         updatedAt: '2024-01-13T12:20:00Z'
+      },
+      {
+        id: 'txn-ugx',
+        amount: 25000.00,
+        currency: 'UGX',
+        status: 'completed',
+        createdAt: '2024-01-12T08:30:00Z',
+        updatedAt: '2024-01-12T08:35:00Z'
       }
     ];
 
     (paymentService.getTransactionHistory as any).mockResolvedValue({
       transactions: mockTransactions,
-      pagination: { limit: 20, offset: 0, total: 3 }
+      pagination: { limit: 20, offset: 0, total: 4 }
     });
     
     render(<TransactionHistory />);
@@ -217,6 +225,7 @@ describe('TransactionHistory', () => {
       expect(screen.getByText('₪100.50')).toBeInTheDocument();
       expect(screen.getByText('$75.25')).toBeInTheDocument();
       expect(screen.getByText('€50.00')).toBeInTheDocument();
+      expect(screen.getByText('USh25000.00')).toBeInTheDocument();
     });
   });
 

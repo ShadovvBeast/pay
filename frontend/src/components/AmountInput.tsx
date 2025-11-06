@@ -5,12 +5,14 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   ILS: '₪',
   USD: '$',
   EUR: '€',
+  UGX: 'USh',
 };
 
 const CURRENCY_NAMES: Record<string, string> = {
   ILS: 'Israeli Shekel',
   USD: 'US Dollar',
   EUR: 'Euro',
+  UGX: 'Ugandan Shilling',
 };
 
 export const AmountInput: React.FC<AmountInputProps> = ({
