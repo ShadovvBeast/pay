@@ -62,7 +62,14 @@ export const ApiKeyManagement: React.FC = () => {
 
     try {
       setError('');
-      const newKey = await apiKeyService.createApiKey(formData);
+      
+      // Convert datetime-local format to ISO string if expiresAt is provided
+      const createData = {
+        ...formData,
+        expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined
+      };
+      
+      const newKey = await apiKeyService.createApiKey(createData);
       setNewApiKey(newKey);
       setFormData({ name: '', permissions: [], expiresAt: undefined });
       setShowCreateForm(false);

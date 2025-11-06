@@ -103,11 +103,56 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
         }
       }
 
+      // Validate and convert expiration date
+      let expiresAt: Date | undefined;
+      if (requestData.expiresAt) {
+        try {
+          expiresAt = new Date(requestData.expiresAt);
+          if (isNaN(expiresAt.getTime())) {
+            set.status = 400;
+            const errorResponse: ErrorResponse = {
+              error: {
+                code: 'INVALID_DATE',
+                message: 'Invalid expiration date format'
+              },
+              timestamp: new Date().toISOString(),
+              requestId: crypto.randomUUID()
+            };
+            return errorResponse;
+          }
+          
+          // Check if date is in the past
+          if (expiresAt <= new Date()) {
+            set.status = 400;
+            const errorResponse: ErrorResponse = {
+              error: {
+                code: 'INVALID_DATE',
+                message: 'Expiration date must be in the future'
+              },
+              timestamp: new Date().toISOString(),
+              requestId: crypto.randomUUID()
+            };
+            return errorResponse;
+          }
+        } catch (error) {
+          set.status = 400;
+          const errorResponse: ErrorResponse = {
+            error: {
+              code: 'INVALID_DATE',
+              message: 'Invalid expiration date format'
+            },
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID()
+          };
+          return errorResponse;
+        }
+      }
+
       const createData: CreateApiKeyData = {
         userId: validation.payload.userId,
         name: requestData.name,
         permissions: requestData.permissions,
-        expiresAt: requestData.expiresAt ? new Date(requestData.expiresAt) : undefined
+        expiresAt
       };
 
       console.log('Creating API key with data:', createData);
@@ -166,7 +211,7 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
           t.Literal('delete')
         ]))
       })),
-      expiresAt: t.Optional(t.String({ format: 'date-time' }))
+      expiresAt: t.Optional(t.String())
     })
   })
 
@@ -355,7 +400,7 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
         ]))
       }))),
       isActive: t.Optional(t.Boolean()),
-      expiresAt: t.Optional(t.String({ format: 'date-time' }))
+      expiresAt: t.Optional(t.String())
     })
   })
 
