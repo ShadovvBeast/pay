@@ -64,9 +64,37 @@ export const ApiKeyManagement: React.FC = () => {
       setError('');
       
       // Convert datetime-local format to ISO string if expiresAt is provided
+      let expiresAtISO: string | undefined;
+      if (formData.expiresAt) {
+        try {
+          // Parse datetime-local format: "YYYY-MM-DDTHH:MM"
+          const [datePart, timePart] = formData.expiresAt.split('T');
+          if (datePart && timePart) {
+            // Ensure we have seconds
+            const timeWithSeconds = timePart.split(':').length === 2 ? `${timePart}:00` : timePart;
+            const fullDateStr = `${datePart}T${timeWithSeconds}`;
+            
+            // Create date object and convert to ISO
+            const date = new Date(fullDateStr);
+            if (!isNaN(date.getTime())) {
+              expiresAtISO = date.toISOString();
+            } else {
+              setError('Invalid expiration date format');
+              return;
+            }
+          } else {
+            setError('Invalid expiration date format');
+            return;
+          }
+        } catch (error) {
+          setError('Invalid expiration date format');
+          return;
+        }
+      }
+      
       const createData = {
         ...formData,
-        expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined
+        expiresAt: expiresAtISO
       };
       
       const newKey = await apiKeyService.createApiKey(createData);
