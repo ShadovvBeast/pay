@@ -17,14 +17,16 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "elysia": "^0.8.17",
-    "@elysiajs/cors": "^0.8.0",
     "@elysiajs/cookie": "^0.8.0",
+    "@elysiajs/cors": "^0.8.0",
     "@elysiajs/jwt": "^0.8.0",
-    "pg": "^8.11.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "bcrypt": "^5.1.1",
-    "qrcode": "^1.5.3",
-    "crypto": "^1.0.1"
+    "crypto": "^1.0.1",
+    "elysia": "^0.8.17",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.11.3",
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "@types/pg": "^8.10.7",

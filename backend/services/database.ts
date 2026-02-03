@@ -12,16 +12,15 @@ export class DatabaseService {
 
   private constructor() {
     this.pool = new Pool({
-      host: config.database.host,
-      port: config.database.port,
-      database: config.database.name,
-      user: config.database.user,
-      password: config.database.password,
+      connectionString: config.database.url,
+      ssl: {
+        rejectUnauthorized: false
+      },
       // Connection pool settings
       min: 2, // Minimum connections in pool
       max: 10, // Maximum connections in pool
       idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-      connectionTimeoutMillis: 2000, // Return error after 2 seconds if connection cannot be established
+      connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection cannot be established
       // acquireTimeoutMillis: 60000, // Return error after 60 seconds if connection cannot be acquired
     });
 
