@@ -6,7 +6,7 @@ runConfig:
   cpu: 1
   memoryMiB: 512
 
-# Use Dockerfile for build
+# Build configuration - use Dockerfile in backend directory
 build:
   rootDirectory: backend
 
