@@ -115,8 +115,8 @@ export class AuthService {
     const isDevelopment = process.env.NODE_ENV !== 'production';
     return {
       httpOnly: true,
-      secure: false, // Allow cookies over HTTP in development
-      sameSite: 'lax' as const,
+      secure: !isDevelopment, // Secure cookies in production (required for sameSite: 'none')
+      sameSite: isDevelopment ? ('lax' as const) : ('none' as const), // 'none' for cross-site in production
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
       domain: isDevelopment ? 'localhost' : undefined
