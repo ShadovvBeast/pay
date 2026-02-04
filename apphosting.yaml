@@ -6,6 +6,10 @@ runConfig:
   cpu: 1
   memoryMiB: 512
 
+# Use Dockerfile for build
+build:
+  rootDirectory: backend
+
 # Environment variables and secrets.
 env:
   # Database configuration
