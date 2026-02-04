@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sb0-pay-v1';
+const CACHE_NAME = 'sb0-pay-v2';
 const STATIC_CACHE_URLS = [
   '/',
   '/index.html',
