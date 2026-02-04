@@ -59,8 +59,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip auth requests - always go to network
+  if (event.request.url.includes('/auth')) {
+    return;
+  }
+
   // Skip API requests - let them go to network
   if (event.request.url.includes('/api/')) {
+    return;
+  }
+
+  // Skip Vite HMR and dev requests
+  if (event.request.url.includes('/@vite') || 
+      event.request.url.includes('/@react-refresh') ||
+      event.request.url.includes('/@fs/') ||
+      event.request.url.includes('/__vite')) {
+    return;
+  }
+
+  // Skip chrome extensions
+  if (event.request.url.startsWith('chrome-extension:')) {
+    return;
+  }
+
+  // Only cache requests from our origin
+  if (!event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
@@ -89,6 +112,9 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
+              })
+              .catch((error) => {
+                console.error('Service Worker: Cache put failed', error);
               });
 
             return response;

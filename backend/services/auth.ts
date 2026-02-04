@@ -112,12 +112,14 @@ export class AuthService {
    * Creates secure cookie options for token storage
    */
   getSecureCookieOptions() {
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     return {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
+      secure: false, // Allow cookies over HTTP in development
+      sameSite: 'lax' as const,
       path: '/',
-      maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+      domain: isDevelopment ? 'localhost' : undefined
     };
   }
 

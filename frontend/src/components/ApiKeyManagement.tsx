@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiKeyService } from '../services/apiKeyService';
 import { ApiDocumentation } from './ApiDocumentation';
-import type { ApiKey, ApiKeyWithSecret, CreateApiKeyRequest, ApiKeyPermission } from '../types/apiKey';
+import type { ApiKey, ApiKeyWithSecret, CreateApiKeyRequest } from '../types/apiKey';
 
 export const ApiKeyManagement: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);

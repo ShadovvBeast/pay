@@ -1,4 +1,4 @@
-import { PaymentData, PaymentResponse, Transaction } from '../types/payment';
+// Payment service types (imported for future use)
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:2894';
 
