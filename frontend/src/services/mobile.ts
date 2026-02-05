@@ -156,7 +156,7 @@ class MobileService {
   addTouchOptimization(element: HTMLElement): void {
     element.style.touchAction = 'manipulation';
     element.style.userSelect = 'none';
-    element.style.webkitTouchCallout = 'none';
+    (element.style as any).webkitTouchCallout = 'none';
     element.style.webkitUserSelect = 'none';
   }
 
@@ -164,7 +164,7 @@ class MobileService {
   removeTouchOptimization(element: HTMLElement): void {
     element.style.touchAction = '';
     element.style.userSelect = '';
-    element.style.webkitTouchCallout = '';
+    (element.style as any).webkitTouchCallout = '';
     element.style.webkitUserSelect = '';
   }
 

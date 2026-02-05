@@ -16,10 +16,14 @@ async function startServer() {
     // Initialize database connection and run migrations
     await db.initialize();
     
+    console.log('CORS Configuration:', {
+      origin: config.cors.origin,
+      origins: config.cors.origins
+    });
+    
     const app = new Elysia()
       .use(cors({
-        // Use normalized list of allowed origins; Origin header never has a trailing slash
-        origin: config.cors.origins,
+        origin: true,
         credentials: true,
         allowedHeaders: ['Content-Type', 'Authorization'],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']

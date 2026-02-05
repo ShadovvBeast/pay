@@ -35,6 +35,10 @@ interface AuthResponse {
     createdAt: Date;
     updatedAt: Date;
   };
+  tokens?: {
+    accessToken: string;
+    refreshToken: string;
+  };
   message: string;
 }
 
@@ -130,6 +134,7 @@ export const authController = new Elysia({ prefix: '/auth' })
           createdAt: newUser.createdAt,
           updatedAt: newUser.updatedAt
         },
+        tokens: tokens, // Include tokens in response for localStorage
         message: 'User registered successfully'
       };
 
@@ -233,6 +238,10 @@ export const authController = new Elysia({ prefix: '/auth' })
           merchantConfig: user.merchantConfig,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt
+        },
+        tokens: {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken
         },
         message: 'Login successful'
       };

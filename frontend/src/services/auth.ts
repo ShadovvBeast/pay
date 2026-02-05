@@ -3,13 +3,20 @@ import { RegisterData, LoginData, AuthResponse, User } from '../types/auth';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:2894';
 
 class AuthService {
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('accessToken');
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
+  }
+
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // Include cookies
       body: JSON.stringify(data),
     });
 
@@ -18,7 +25,15 @@ class AuthService {
       throw new Error(error.error?.message || 'Registration failed');
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Store tokens in localStorage
+    if (result.tokens) {
+      localStorage.setItem('accessToken', result.tokens.accessToken);
+      localStorage.setItem('refreshToken', result.tokens.refreshToken);
+    }
+
+    return result;
   }
 
   async login(data: LoginData): Promise<AuthResponse> {
@@ -27,7 +42,6 @@ class AuthService {
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // Include cookies
       body: JSON.stringify(data),
     });
 
@@ -36,16 +50,32 @@ class AuthService {
       throw new Error(error.error?.message || 'Login failed');
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Store tokens in localStorage
+    if (result.tokens) {
+      localStorage.setItem('accessToken', result.tokens.accessToken);
+      localStorage.setItem('refreshToken', result.tokens.refreshToken);
+    }
+
+    return result;
   }
 
   async getCurrentUser(): Promise<User | null> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        credentials: 'include', // Include cookies
+        headers: this.getAuthHeaders(),
       });
 
       if (!response.ok) {
+        // If unauthorized, try to refresh token
+        if (response.status === 401) {
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            // Retry with new token
+            return this.getCurrentUser();
+          }
+        }
         return null;
       }
 
@@ -60,17 +90,21 @@ class AuthService {
     try {
       await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
-        credentials: 'include', // Include cookies
+        headers: this.getAuthHeaders(),
       });
     } catch (error) {
       // Ignore logout errors
+    } finally {
+      // Clear tokens from localStorage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     }
   }
 
   async validateToken(): Promise<boolean> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/validate`, {
-        credentials: 'include', // Include cookies
+        headers: this.getAuthHeaders(),
       });
 
       return response.ok;
@@ -81,12 +115,34 @@ class AuthService {
 
   async refreshToken(): Promise<boolean> {
     try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        return false;
+      }
+
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
-        credentials: 'include', // Include cookies
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshToken}`,
+        },
       });
 
-      return response.ok;
+      if (!response.ok) {
+        // Clear invalid tokens
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        return false;
+      }
+
+      const result = await response.json();
+      
+      // Update access token
+      if (result.accessToken) {
+        localStorage.setItem('accessToken', result.accessToken);
+      }
+
+      return true;
     } catch (error) {
       return false;
     }
@@ -95,10 +151,7 @@ class AuthService {
   async updateUser(userData: Partial<User>): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/auth/update`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(userData),
     });
 

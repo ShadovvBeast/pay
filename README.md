@@ -44,10 +44,61 @@ A simple Point of Sale (PoS) system designed to be the easiest payment solution 
 
 ## Setup Instructions
 
+> **📖 For detailed workspace setup and development guide, see [WORKSPACE_SETUP.md](./WORKSPACE_SETUP.md)**
+
 ### Prerequisites
 
-- [Bun](https://bun.sh) installed
-- PostgreSQL database running
+- [Bun](https://bun.sh) >= 1.0.0 installed
+- PostgreSQL >= 14.0 database running
+
+### Quick Start
+
+```bash
+# 1. Install dependencies
+bun install
+
+# 2. Setup environment
+cp backend/.env.example backend/.env
+# Edit backend/.env with your configuration
+
+# 3. Initialize database
+bun run db:init
+
+# 4. Start development servers
+bun run dev
+```
+
+The backend will be available at `http://localhost:2894` and the frontend at `http://localhost:5173`.
+
+### Available Scripts
+
+```bash
+# Development
+bun run dev              # Start all services
+bun run dev:backend      # Backend only
+bun run dev:frontend     # Frontend only
+
+# Building
+bun run build            # Build all
+bun run build:backend    # Build backend
+bun run build:frontend   # Build frontend
+
+# Testing
+bun test                 # Run all tests
+bun run test:backend     # Backend tests
+bun run test:frontend    # Frontend tests
+
+# Database
+bun run db:migrate       # Run migrations
+bun run db:status        # Check status
+bun run db:reset         # Reset database
+
+# Code Quality
+bun run lint             # Lint all code
+bun run type-check       # Type check all code
+```
+
+For more detailed information, see [WORKSPACE_SETUP.md](./WORKSPACE_SETUP.md).
 - AllPay API credentials
 
 ### Installation

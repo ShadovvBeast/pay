@@ -8,27 +8,37 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "npm run dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend",
-    "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "npm run build --workspace=backend",
-    "build:frontend": "npm run build --workspace=frontend",
-    "start": "npm run start --workspace=backend",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces",
+    "dev": "bun run --filter '*' dev",
+    "dev:backend": "bun --filter backend dev",
+    "dev:frontend": "bun --filter frontend dev",
+    "build": "bun run build:backend && bun run build:frontend",
+    "build:backend": "bun --filter backend build",
+    "build:frontend": "bun --filter frontend build",
+    "start": "bun --filter backend start",
+    "start:prod": "NODE_ENV=production bun --filter backend start:prod",
+    "test": "bun test",
+    "test:backend": "bun --filter backend test",
+    "test:frontend": "bun --filter frontend test",
+    "lint": "bun run lint:backend && bun run lint:frontend",
+    "lint:backend": "bun --filter backend lint",
+    "lint:frontend": "bun --filter frontend lint",
+    "type-check": "bun run type-check:backend && bun run type-check:frontend",
+    "type-check:backend": "bun --filter backend type-check",
+    "type-check:frontend": "bun --filter frontend type-check",
     "db:init": "bun scripts/db-cli.ts init",
     "db:migrate": "bun scripts/db-cli.ts migrate",
     "db:status": "bun scripts/db-cli.ts status",
-    "db:reset": "bun scripts/db-cli.ts reset"
+    "db:reset": "bun scripts/db-cli.ts reset",
+    "clean": "bun run clean:backend && bun run clean:frontend",
+    "clean:backend": "rm -rf backend/dist backend/node_modules",
+    "clean:frontend": "rm -rf frontend/dist frontend/node_modules",
+    "install:all": "bun install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0",
-    "typescript": "^5.2.0",
-    "@types/node": "^20.8.0"
+    "@types/node": "^20.8.0",
+    "typescript": "^5.2.0"
   },
   "engines": {
-    "node": ">=18.0.0",
     "bun": ">=1.0.0"
   },
   "repository": {
@@ -40,7 +50,11 @@
     "processing",
     "api",
     "fintech",
-    "allpay"
+    "allpay",
+    "bun",
+    "elysia",
+    "react"
   ],
-  "author": "SB0 Pay Team"
+  "author": "SB0 Pay Team",
+  "license": "UNLICENSED"
 }

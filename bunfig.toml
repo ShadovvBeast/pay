@@ -1,0 +1,47 @@
+# Bun Configuration File
+# https://bun.sh/docs/runtime/bunfig
+
+[install]
+# Configure package installation
+cache = true
+registry = "https://registry.npmjs.org/"
+lockfile = true
+
+# Optimize for production builds
+production = false
+
+# Auto-install peer dependencies
+auto = true
+
+# Use exact versions in lockfile
+exact = false
+
+[install.scopes]
+# Configure scoped registries if needed
+# "@myorg" = "https://registry.myorg.com/"
+
+[test]
+# Test configuration
+coverage = false
+preload = []
+
+[run]
+# Runtime configuration
+bun = true
+shell = "bun"
+
+# Hot reload configuration
+hot = true
+
+# Prefer Bun's built-in modules
+prefer-bun = true
+
+[build]
+# Build configuration
+target = "bun"
+minify = false
+sourcemap = "external"
+
+[define]
+# Global constants
+# "process.env.NODE_ENV" = "development"

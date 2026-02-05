@@ -1,0 +1,12 @@
+# Bun Runtime Configuration
+# This file is sourced when running Bun commands
+
+# Set default environment
+export BUN_ENV=${BUN_ENV:-development}
+
+# Performance optimizations
+export BUN_INSTALL_CACHE_DIR=~/.bun/install/cache
+export BUN_RUNTIME_TRANSPILER_CACHE_PATH=~/.bun/install/cache
+
+# Enable Bun's built-in features
+export BUN_JSC_forceRAMSize=4294967296  # 4GB RAM for JSC

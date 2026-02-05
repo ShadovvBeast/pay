@@ -30,6 +30,10 @@ export interface LoginData {
 
 export interface AuthResponse {
   user: User;
+  tokens?: {
+    accessToken: string;
+    refreshToken: string;
+  };
   message: string;
 }
 

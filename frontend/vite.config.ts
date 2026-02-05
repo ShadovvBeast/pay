@@ -22,6 +22,10 @@ export default defineConfig({
     https: false, // Set to true for local HTTPS testing
     host: true,
     allowedHosts: ['pay.sb0.tech'],
-    port: 2895
+    port: 2895,
+    hmr: {
+      clientPort: 2895,
+      host: 'localhost'
+    }
   }
 })

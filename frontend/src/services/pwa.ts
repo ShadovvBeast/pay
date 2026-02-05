@@ -10,7 +10,8 @@ export interface QueuedPayment {
 }
 
 class PWAService {
-  private serviceWorker: ServiceWorker | null = null;
+  // Service worker reference for future use
+  // private serviceWorker: ServiceWorker | null = null;
   private isOnline: boolean = navigator.onLine;
   private onlineCallbacks: (() => void)[] = [];
   private offlineCallbacks: (() => void)[] = [];
@@ -49,7 +50,7 @@ class PWAService {
         }
       });
 
-      this.serviceWorker = registration.active;
+      // this.serviceWorker = registration.active;
       return true;
     } catch (error) {
       console.error('Service Worker registration failed:', error);
@@ -160,7 +161,7 @@ class PWAService {
       // Trigger background sync if service worker is available
       if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
         navigator.serviceWorker.ready.then(registration => {
-          return registration.sync.register('payment-sync');
+          return (registration as any).sync.register('payment-sync');
         }).catch(error => {
           console.error('Background sync registration failed:', error);
         });
