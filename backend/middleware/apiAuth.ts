@@ -58,6 +58,20 @@ export const apiKeyAuth = (requiredResource?: string, requiredAction?: string) =
         }));
       }
 
+      // Additional safety check - ensure apiKey has userId
+      if (!validation.apiKey.userId) {
+        set.status = 500;
+        throw new Error(JSON.stringify({
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'API key validation returned incomplete data',
+            type: 'api_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        }));
+      }
+
       // Check permissions if required
       if (requiredResource && requiredAction) {
         const hasPermission = apiKeyService.hasPermission(

@@ -24,6 +24,21 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       const paymentData = body as PublicCreatePaymentRequest;
       const authApiKey = apiKey as ApiKey;
       
+      // Validate API key is properly set
+      if (!authApiKey || !authApiKey.userId) {
+        set.status = 401;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'INVALID_API_KEY',
+            message: 'API key authentication failed',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
+      
       // Get user details for merchant configuration
       const currentUser = await userRepository.findById(authApiKey.userId);
       
@@ -228,6 +243,21 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       const authApiKey = apiKey as ApiKey;
       const paymentId = params.id;
 
+      // Validate API key is properly set
+      if (!authApiKey || !authApiKey.userId) {
+        set.status = 401;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'INVALID_API_KEY',
+            message: 'API key authentication failed',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
+
       // Get payment details and verify ownership
       const transaction = await paymentService.getPaymentStatus(paymentId);
       
@@ -299,6 +329,22 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
   .get('/payments', async ({ query, apiKey, requestId, set }) => {
     try {
       const authApiKey = apiKey as ApiKey;
+      
+      // Validate API key is properly set
+      if (!authApiKey || !authApiKey.userId) {
+        set.status = 401;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'INVALID_API_KEY',
+            message: 'API key authentication failed',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
+      
       const limit = Math.min(parseInt(query.limit as string) || 50, 100);
       const offset = Math.max(parseInt(query.offset as string) || 0, 0);
       
@@ -356,6 +402,21 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       const authApiKey = apiKey as ApiKey;
       const paymentId = params.id;
       const refundData = body as { amount?: number };
+
+      // Validate API key is properly set
+      if (!authApiKey || !authApiKey.userId) {
+        set.status = 401;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'INVALID_API_KEY',
+            message: 'API key authentication failed',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
 
       // Process refund
       const transaction = await paymentService.refundPayment(
@@ -451,6 +512,21 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
     try {
       const authApiKey = apiKey as ApiKey;
       const paymentId = params.id;
+
+      // Validate API key is properly set
+      if (!authApiKey || !authApiKey.userId) {
+        set.status = 401;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'INVALID_API_KEY',
+            message: 'API key authentication failed',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
 
       // Cancel payment
       const transaction = await paymentService.cancelPayment(paymentId, authApiKey.userId);
