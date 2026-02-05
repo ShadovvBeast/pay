@@ -5,6 +5,148 @@ All notable changes to SB0 Pay will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-02-05
+
+### 🚀 Added - Enhanced Payment Features & AllPay Capabilities
+
+#### Line Items Support
+- **Itemized Payments**: Support for detailed line items with individual products, prices, and quantities
+- **VAT Handling**: Per-item VAT configuration (18% included or 0% VAT)
+- **Automatic Validation**: Line items total automatically validated against payment amount
+- **Invoice Details**: Better accounting and reporting with itemized breakdowns
+
+#### Installment Payments
+- **Israeli Credit Card Installments**: Support for 1-12 installment payments
+- **Flexible or Fixed**: Choose between flexible installment options or fixed installment count
+- **Customer Choice**: Allow customers to select installment count at payment time
+
+#### Payment Expiration
+- **Custom Expiration**: Set custom expiration times for payment links
+- **ISO 8601 Format**: Standard timestamp format for expiration dates
+- **Default Handling**: Automatic 1-hour default if not specified
+
+#### Enhanced Customer Information
+- **Customer ID Number**: Israeli ID number (tehudat zehut) capture for compliance
+- **Extended Customer Data**: Enhanced email, name, and phone number handling
+- **Compliance Support**: Better support for regulatory requirements
+
+#### Payment Method Controls
+- **Apple Pay Toggle**: Control Apple Pay payment method visibility
+- **Bit Payment Toggle**: Control Bit payment method visibility
+- **Payment Method Flexibility**: Show/hide payment options based on merchant preferences
+
+#### Pre-authorization
+- **Authorization Without Capture**: Support for pre-authorization payments
+- **Reservation Support**: Ideal for hotel bookings, car rentals, and deposits
+- **Delayed Fulfillment**: Authorize now, capture later workflow
+
+#### Custom Merchant Fields
+- **Two Custom Fields**: Merchant-specific data fields for internal tracking
+- **Webhook Pass-through**: Custom fields returned in webhook notifications
+- **Flexible Usage**: Use for order IDs, warehouse codes, or any custom data
+
+### 🔧 Enhanced
+
+#### API Version
+- **API Version 1.1.0**: Updated API documentation version
+- **Backward Compatible**: All new features are optional, existing integrations unaffected
+- **Enhanced Documentation**: Complete examples showing new capabilities
+
+#### Database Schema
+- **Migration 004**: New migration for enhanced payment features
+- **New Transaction Fields**: 
+  - `description` - Payment description text
+  - `line_items` - JSONB array of line items
+  - `customer_id_number` - Israeli ID number
+  - `max_installments` - Maximum installments (1-12)
+  - `fixed_installments` - Fixed installment requirement
+  - `expires_at` - Payment expiration timestamp
+  - `preauthorize` - Pre-authorization flag
+  - `custom_field_1` & `custom_field_2` - Custom merchant fields
+  - `success_url`, `cancel_url`, `webhook_url` - Custom URLs
+  - `metadata` - Additional JSONB data
+  - `api_key_id` - API key reference
+- **Indexed Fields**: Performance indexes on customer_email, expires_at, and api_key_id
+
+#### Type System
+- **PublicLineItem Interface**: New type for line item structure
+- **Enhanced Request Types**: Updated PublicCreatePaymentRequest with all new fields
+- **Enhanced Response Types**: Updated PublicPaymentResponse with line items and expiration
+- **Transaction Type Updates**: Extended Transaction interface with new fields
+
+#### AllPay Integration
+- **Enhanced AllPay Client**: Updated to support all new AllPay API features
+- **Options Parameter**: New options object for passing enhanced features to AllPay
+- **Feature Mapping**: Proper mapping of features to AllPay API parameters
+- **Signature Generation**: Updated signature generation for new fields
+
+#### Services & Repositories
+- **Payment Service**: Enhanced to handle all new payment features
+- **Transaction Repository**: Updated CREATE and SELECT queries for new fields
+- **JSON Field Handling**: Proper serialization/deserialization of JSONB fields
+- **Validation**: Comprehensive validation for line items, installments, and expiration
+
+### 📚 Documentation
+
+#### API Documentation Updates
+- **Enhanced Examples**: Updated examples showing line items and new features
+- **OpenAPI Specification**: Updated OpenAPI 3.0 spec with new field schemas
+- **Code Samples**: Updated cURL, JavaScript, and Python examples
+- **Feature Documentation**: Detailed documentation for each new feature
+
+#### New Documentation Files
+- **ENHANCED_API_FEATURES.md**: Comprehensive guide to new features with examples
+- **Migration Guide**: Instructions for applying database changes
+- **Feature Benefits**: Detailed explanation of each feature and use cases
+
+### 🛠️ Technical Details
+
+#### Modified Files
+- `backend/types/index.ts` - Added PublicLineItem, enhanced request/response types
+- `backend/services/allpay.ts` - Enhanced createPayment with options parameter
+- `backend/services/payment.ts` - Updated to pass new features to AllPay
+- `backend/services/transactionRepository.ts` - Enhanced CREATE/SELECT with new fields
+- `backend/controllers/publicApi.ts` - Added validation for line items and new fields
+- `backend/controllers/docs.ts` - Updated documentation and examples
+- `backend/database/migrations/004_add_payment_features.sql` - New migration
+- `package.json` - Version bump to 0.4.0
+- `backend/package.json` - Version bump to 0.4.0
+- `frontend/package.json` - Version bump to 0.4.0
+
+### 🎯 Migration Notes
+- Run `bun run db:migrate` to apply database changes
+- All new features are optional and backward compatible
+- Existing API integrations continue working without modification
+- Review ENHANCED_API_FEATURES.md for detailed feature documentation
+
+### 💡 Example Usage
+
+```json
+{
+  "amount": 250.00,
+  "lineItems": [
+    {
+      "name": "Premium Widget",
+      "price": 150.00,
+      "quantity": 1,
+      "includesVat": true
+    },
+    {
+      "name": "Shipping",
+      "price": 100.00,
+      "quantity": 1,
+      "includesVat": false
+    }
+  ],
+  "maxInstallments": 3,
+  "customerIdNumber": "123456789",
+  "expiresAt": "2025-02-10T23:59:59Z",
+  "showBit": true
+}
+```
+
+---
+
 ## [0.3.0] - 2025-11-06
 
 ### 🚀 Added - Public API System

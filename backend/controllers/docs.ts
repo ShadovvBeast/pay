@@ -10,8 +10,8 @@ export const docsController = new Elysia({ prefix: '/docs' })
   .get('/', () => {
     return {
       title: 'SB0 Pay API Documentation',
-      version: '1.0.0',
-      description: 'Comprehensive payment processing API with API key authentication',
+      version: '1.1.0',
+      description: 'Comprehensive payment processing API with line items, installments, and advanced AllPay features',
       baseUrl: '/api/v1',
       authentication: {
         type: 'Bearer Token',
@@ -27,9 +27,19 @@ export const docsController = new Elysia({ prefix: '/docs' })
               amount: 'number (required) - Amount in the smallest currency unit',
               currency: 'string (optional) - 3-letter currency code (defaults to user currency)',
               description: 'string (optional) - Payment description',
+              lineItems: 'array (optional) - Array of line items for itemized payments',
               customerEmail: 'string (optional) - Customer email address',
               customerName: 'string (optional) - Customer name',
               customerPhone: 'string (optional) - Customer phone number',
+              customerIdNumber: 'string (optional) - Customer ID number (Israeli tehudat zehut)',
+              maxInstallments: 'number (optional) - Maximum installments (1-12)',
+              fixedInstallments: 'boolean (optional) - Require exact installment count',
+              expiresAt: 'string (optional) - ISO 8601 expiration timestamp',
+              preauthorize: 'boolean (optional) - Authorize without capturing',
+              showApplePay: 'boolean (optional) - Show Apple Pay option',
+              showBit: 'boolean (optional) - Show Bit payment option',
+              customField1: 'string (optional) - Custom field for merchant use',
+              customField2: 'string (optional) - Custom field for merchant use',
               successUrl: 'string (optional) - URL to redirect after successful payment',
               cancelUrl: 'string (optional) - URL to redirect after cancelled payment',
               webhookUrl: 'string (optional) - URL to receive payment notifications',
@@ -119,11 +129,26 @@ export const docsController = new Elysia({ prefix: '/docs' })
               'Content-Type': 'application/json'
             },
             body: {
-              amount: 100.50,
+              amount: 250.00,
               currency: 'ILS',
               description: 'Order #12345',
+              lineItems: [
+                {
+                  name: 'Product A',
+                  price: 150.00,
+                  quantity: 1,
+                  includesVat: true
+                },
+                {
+                  name: 'Product B',
+                  price: 100.00,
+                  quantity: 1,
+                  includesVat: true
+                }
+              ],
               customerEmail: 'customer@example.com',
               customerName: 'John Doe',
+              maxInstallments: 3,
               successUrl: 'https://yoursite.com/success',
               cancelUrl: 'https://yoursite.com/cancel',
               webhookUrl: 'https://yoursite.com/webhook',
@@ -135,12 +160,26 @@ export const docsController = new Elysia({ prefix: '/docs' })
           },
           response: {
             id: 'txn_1234567890abcdef',
-            amount: 100.50,
+            amount: 250.00,
             currency: 'ILS',
             status: 'pending',
             paymentUrl: 'https://pay.allpay.co.il/...',
             qrCodeDataUrl: 'data:image/png;base64,...',
             description: 'Order #12345',
+            lineItems: [
+              {
+                name: 'Product A',
+                price: 150.00,
+                quantity: 1,
+                includesVat: true
+              },
+              {
+                name: 'Product B',
+                price: 100.00,
+                quantity: 1,
+                includesVat: true
+              }
+            ],
             metadata: {
               orderId: '12345',
               customField: 'value'
@@ -177,10 +216,25 @@ export const docsController = new Elysia({ prefix: '/docs' })
   -H "Authorization: Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "amount": 100.50,
+    "amount": 250.00,
     "currency": "ILS",
     "description": "Order #12345",
-    "customerEmail": "customer@example.com"
+    "lineItems": [
+      {
+        "name": "Product A",
+        "price": 150.00,
+        "quantity": 1,
+        "includesVat": true
+      },
+      {
+        "name": "Product B",
+        "price": 100.00,
+        "quantity": 1,
+        "includesVat": true
+      }
+    ],
+    "customerEmail": "customer@example.com",
+    "maxInstallments": 3
   }'`
         },
         javascript: {
@@ -228,8 +282,8 @@ payment = response.json()`
       openapi: '3.0.0',
       info: {
         title: 'SB0 Pay API',
-        version: '1.0.0',
-        description: 'Comprehensive payment processing API'
+        version: '1.1.0',
+        description: 'Comprehensive payment processing API with line items, installments, and advanced AllPay features'
       },
       servers: [
         {
@@ -298,9 +352,31 @@ payment = response.json()`
                       amount: { type: 'number', minimum: 0.01 },
                       currency: { type: 'string', pattern: '^[A-Z]{3}$' },
                       description: { type: 'string' },
+                      lineItems: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          required: ['name', 'price', 'quantity'],
+                          properties: {
+                            name: { type: 'string' },
+                            price: { type: 'number', minimum: 0 },
+                            quantity: { type: 'number', minimum: 1 },
+                            includesVat: { type: 'boolean' }
+                          }
+                        }
+                      },
                       customerEmail: { type: 'string', format: 'email' },
                       customerName: { type: 'string' },
                       customerPhone: { type: 'string' },
+                      customerIdNumber: { type: 'string' },
+                      maxInstallments: { type: 'number', minimum: 1, maximum: 12 },
+                      fixedInstallments: { type: 'boolean' },
+                      expiresAt: { type: 'string', format: 'date-time' },
+                      preauthorize: { type: 'boolean' },
+                      showApplePay: { type: 'boolean' },
+                      showBit: { type: 'boolean' },
+                      customField1: { type: 'string' },
+                      customField2: { type: 'string' },
                       successUrl: { type: 'string', format: 'uri' },
                       cancelUrl: { type: 'string', format: 'uri' },
                       webhookUrl: { type: 'string', format: 'uri' },

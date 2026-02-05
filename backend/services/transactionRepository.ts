@@ -40,9 +40,26 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url, 
         allpay_transaction_id,
         status,
+        description,
+        line_items,
+        customer_email,
+        customer_name,
+        customer_phone,
+        customer_id_number,
+        max_installments,
+        fixed_installments,
+        expires_at,
+        preauthorize,
+        custom_field_1,
+        custom_field_2,
+        success_url,
+        cancel_url,
+        webhook_url,
+        metadata,
+        api_key_id,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW(), NOW())
       RETURNING 
         id,
         user_id as "userId",
@@ -51,6 +68,23 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url as "paymentUrl",
         allpay_transaction_id as "allpayTransactionId",
         status,
+        description,
+        line_items as "lineItems",
+        customer_email as "customerEmail",
+        customer_name as "customerName",
+        customer_phone as "customerPhone",
+        customer_id_number as "customerIdNumber",
+        max_installments as "maxInstallments",
+        fixed_installments as "fixedInstallments",
+        expires_at as "expiresAt",
+        preauthorize,
+        custom_field_1 as "customField1",
+        custom_field_2 as "customField2",
+        success_url as "successUrl",
+        cancel_url as "cancelUrl",
+        webhook_url as "webhookUrl",
+        metadata,
+        api_key_id as "apiKeyId",
         created_at as "createdAt",
         updated_at as "updatedAt"
     `;
@@ -61,7 +95,24 @@ export class PostgresTransactionRepository implements TransactionRepository {
       sanitizedData.currency,
       sanitizedData.paymentUrl,
       sanitizedData.allpayTransactionId || null,
-      'pending' // Default status
+      'pending', // Default status
+      sanitizedData.description || null,
+      sanitizedData.lineItems ? JSON.stringify(sanitizedData.lineItems) : null,
+      sanitizedData.customerEmail || null,
+      sanitizedData.customerName || null,
+      sanitizedData.customerPhone || null,
+      sanitizedData.customerIdNumber || null,
+      sanitizedData.maxInstallments || null,
+      sanitizedData.fixedInstallments || false,
+      sanitizedData.expiresAt || null,
+      sanitizedData.preauthorize || false,
+      sanitizedData.customField1 || null,
+      sanitizedData.customField2 || null,
+      sanitizedData.successUrl || null,
+      sanitizedData.cancelUrl || null,
+      sanitizedData.webhookUrl || null,
+      sanitizedData.metadata ? JSON.stringify(sanitizedData.metadata) : null,
+      sanitizedData.apiKeyId || null
     ];
 
     try {
@@ -69,8 +120,14 @@ export class PostgresTransactionRepository implements TransactionRepository {
       if (!result) {
         throw new Error('Failed to create transaction');
       }
-      // Convert amount from string to number
+      // Convert amount from string to number and parse JSON fields
       result.amount = parseFloat(result.amount as any);
+      if (result.lineItems && typeof result.lineItems === 'string') {
+        result.lineItems = JSON.parse(result.lineItems);
+      }
+      if (result.metadata && typeof result.metadata === 'string') {
+        result.metadata = JSON.parse(result.metadata);
+      }
       return result;
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -91,6 +148,23 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url as "paymentUrl",
         allpay_transaction_id as "allpayTransactionId",
         status,
+        description,
+        line_items as "lineItems",
+        customer_email as "customerEmail",
+        customer_name as "customerName",
+        customer_phone as "customerPhone",
+        customer_id_number as "customerIdNumber",
+        max_installments as "maxInstallments",
+        fixed_installments as "fixedInstallments",
+        expires_at as "expiresAt",
+        preauthorize,
+        custom_field_1 as "customField1",
+        custom_field_2 as "customField2",
+        success_url as "successUrl",
+        cancel_url as "cancelUrl",
+        webhook_url as "webhookUrl",
+        metadata,
+        api_key_id as "apiKeyId",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM transactions 
@@ -101,6 +175,12 @@ export class PostgresTransactionRepository implements TransactionRepository {
       const result = await db.queryOne<Transaction>(query, [id]);
       if (result) {
         result.amount = parseFloat(result.amount as any);
+        if (result.lineItems && typeof result.lineItems === 'string') {
+          result.lineItems = JSON.parse(result.lineItems);
+        }
+        if (result.metadata && typeof result.metadata === 'string') {
+          result.metadata = JSON.parse(result.metadata);
+        }
       }
       return result;
     } catch (error) {
@@ -122,6 +202,23 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url as "paymentUrl",
         allpay_transaction_id as "allpayTransactionId",
         status,
+        description,
+        line_items as "lineItems",
+        customer_email as "customerEmail",
+        customer_name as "customerName",
+        customer_phone as "customerPhone",
+        customer_id_number as "customerIdNumber",
+        max_installments as "maxInstallments",
+        fixed_installments as "fixedInstallments",
+        expires_at as "expiresAt",
+        preauthorize,
+        custom_field_1 as "customField1",
+        custom_field_2 as "customField2",
+        success_url as "successUrl",
+        cancel_url as "cancelUrl",
+        webhook_url as "webhookUrl",
+        metadata,
+        api_key_id as "apiKeyId",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM transactions 
@@ -132,9 +229,15 @@ export class PostgresTransactionRepository implements TransactionRepository {
 
     try {
       const result = await db.query<Transaction>(query, [userId, limit, offset]);
-      // Convert amounts from strings to numbers
+      // Convert amounts from strings to numbers and parse JSON fields
       result.rows.forEach(row => {
         row.amount = parseFloat(row.amount as any);
+        if (row.lineItems && typeof row.lineItems === 'string') {
+          row.lineItems = JSON.parse(row.lineItems as string);
+        }
+        if (row.metadata && typeof row.metadata === 'string') {
+          row.metadata = JSON.parse(row.metadata as string);
+        }
       });
       return result.rows;
     } catch (error) {

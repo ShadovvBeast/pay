@@ -9,7 +9,6 @@ import type {
   ApiKeyPermission 
 } from '../types/index.js';
 import { db } from '../services/database.js';
-import { db } from '../services/database.js';
 
 // Request types
 interface CreateApiKeyRequest {

@@ -44,13 +44,80 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       // Use user's currency if not specified
       const currency = paymentData.currency || currentUser.merchantConfig.currency;
 
+      // Parse expiresAt if provided
+      let expiresAt: Date | undefined;
+      if (paymentData.expiresAt) {
+        expiresAt = new Date(paymentData.expiresAt);
+        if (isNaN(expiresAt.getTime())) {
+          set.status = 400;
+          const errorResponse: PublicErrorResponse = {
+            error: {
+              code: 'INVALID_EXPIRATION',
+              message: 'Invalid expiration date format. Use ISO 8601 format.',
+              type: 'invalid_request'
+            },
+            timestamp: new Date().toISOString(),
+            requestId
+          };
+          return errorResponse;
+        }
+        
+        // Ensure expiration is in the future
+        if (expiresAt <= new Date()) {
+          set.status = 400;
+          const errorResponse: PublicErrorResponse = {
+            error: {
+              code: 'INVALID_EXPIRATION',
+              message: 'Expiration date must be in the future',
+              type: 'invalid_request'
+            },
+            timestamp: new Date().toISOString(),
+            requestId
+          };
+          return errorResponse;
+        }
+      }
+
+      // Validate line items if provided
+      if (paymentData.lineItems && paymentData.lineItems.length > 0) {
+        const totalLineItemsAmount = paymentData.lineItems.reduce(
+          (sum, item) => sum + (item.price * item.quantity), 
+          0
+        );
+        
+        // Allow small rounding differences (1 cent)
+        if (Math.abs(totalLineItemsAmount - paymentData.amount) > 0.01) {
+          set.status = 400;
+          const errorResponse: PublicErrorResponse = {
+            error: {
+              code: 'INVALID_LINE_ITEMS',
+              message: `Line items total (${totalLineItemsAmount.toFixed(2)}) must match payment amount (${paymentData.amount.toFixed(2)})`,
+              type: 'invalid_request'
+            },
+            timestamp: new Date().toISOString(),
+            requestId
+          };
+          return errorResponse;
+        }
+      }
+
       // Create enhanced payment data
       const enhancedPaymentData = {
         amount: paymentData.amount,
         description: paymentData.description,
+        lineItems: paymentData.lineItems,
         customerEmail: paymentData.customerEmail,
         customerName: paymentData.customerName,
         customerPhone: paymentData.customerPhone,
+        customerIdNumber: paymentData.customerIdNumber,
+        maxInstallments: paymentData.maxInstallments,
+        fixedInstallments: paymentData.fixedInstallments,
+        expiresAt: expiresAt,
+        preauthorize: paymentData.preauthorize,
+        showApplePay: paymentData.showApplePay,
+        showBit: paymentData.showBit,
+        customField1: paymentData.customField1,
+        customField2: paymentData.customField2,
         successUrl: paymentData.successUrl,
         cancelUrl: paymentData.cancelUrl,
         webhookUrl: paymentData.webhookUrl,
@@ -70,6 +137,8 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
         paymentUrl: result.paymentUrl,
         qrCodeDataUrl: result.qrCodeDataUrl,
         description: paymentData.description,
+        lineItems: paymentData.lineItems,
+        expiresAt: expiresAt?.toISOString(),
         metadata: paymentData.metadata,
         createdAt: result.transaction.createdAt.toISOString()
       };
@@ -127,9 +196,24 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       amount: t.Number({ minimum: 0.01, maximum: 999999.99 }),
       currency: t.Optional(t.String({ pattern: '^[A-Z]{3}$' })),
       description: t.Optional(t.String({ maxLength: 255 })),
+      lineItems: t.Optional(t.Array(t.Object({
+        name: t.String({ minLength: 1, maxLength: 255 }),
+        price: t.Number({ minimum: 0 }),
+        quantity: t.Number({ minimum: 1 }),
+        includesVat: t.Optional(t.Boolean())
+      }))),
       customerEmail: t.Optional(t.String({ format: 'email' })),
       customerName: t.Optional(t.String({ maxLength: 255 })),
       customerPhone: t.Optional(t.String({ maxLength: 50 })),
+      customerIdNumber: t.Optional(t.String({ maxLength: 20 })),
+      maxInstallments: t.Optional(t.Number({ minimum: 1, maximum: 12 })),
+      fixedInstallments: t.Optional(t.Boolean()),
+      expiresAt: t.Optional(t.String()),
+      preauthorize: t.Optional(t.Boolean()),
+      showApplePay: t.Optional(t.Boolean()),
+      showBit: t.Optional(t.Boolean()),
+      customField1: t.Optional(t.String({ maxLength: 255 })),
+      customField2: t.Optional(t.String({ maxLength: 255 })),
       successUrl: t.Optional(t.String({ format: 'uri' })),
       cancelUrl: t.Optional(t.String({ format: 'uri' })),
       webhookUrl: t.Optional(t.String({ format: 'uri' })),

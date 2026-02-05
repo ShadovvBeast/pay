@@ -10,9 +10,19 @@ import type {
 export interface CreatePaymentRequest {
   amount: number;
   description?: string;
+  lineItems?: Array<{ name: string; price: number; quantity: number; includesVat?: boolean }>;
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
+  customerIdNumber?: string;
+  maxInstallments?: number;
+  fixedInstallments?: boolean;
+  expiresAt?: Date;
+  preauthorize?: boolean;
+  showApplePay?: boolean;
+  showBit?: boolean;
+  customField1?: string;
+  customField2?: string;
   successUrl?: string;
   cancelUrl?: string;
   webhookUrl?: string;
@@ -67,7 +77,25 @@ export class PaymentService {
       const allPayResponse = await allPayClient.createPayment(
         request.amount,
         user.merchantConfig,
-        request.description
+        request.description,
+        {
+          lineItems: request.lineItems,
+          customerEmail: request.customerEmail,
+          customerName: request.customerName,
+          customerPhone: request.customerPhone,
+          customerIdNumber: request.customerIdNumber,
+          maxInstallments: request.maxInstallments,
+          fixedInstallments: request.fixedInstallments,
+          expiresAt: request.expiresAt,
+          preauthorize: request.preauthorize,
+          showApplePay: request.showApplePay,
+          showBit: request.showBit,
+          customField1: request.customField1,
+          customField2: request.customField2,
+          notificationsUrl: request.webhookUrl,
+          successUrl: request.successUrl,
+          backlinkUrl: request.cancelUrl
+        }
       );
 
       const paymentUrl = allPayResponse.payment_url;
@@ -91,9 +119,17 @@ export class PaymentService {
         paymentUrl: paymentUrl,
         allpayTransactionId: allPayOrderId,
         description: request.description,
+        lineItems: request.lineItems,
         customerEmail: request.customerEmail,
         customerName: request.customerName,
         customerPhone: request.customerPhone,
+        customerIdNumber: request.customerIdNumber,
+        maxInstallments: request.maxInstallments,
+        fixedInstallments: request.fixedInstallments,
+        expiresAt: request.expiresAt,
+        preauthorize: request.preauthorize,
+        customField1: request.customField1,
+        customField2: request.customField2,
         successUrl: request.successUrl,
         cancelUrl: request.cancelUrl,
         webhookUrl: request.webhookUrl,

@@ -30,23 +30,74 @@ export class AllPayApiClient {
      * Create a payment request with AllPay API
      * Based on official AllPay API documentation
      */
-    async createPayment(amount: number, merchantConfig: MerchantConfig, description?: string): Promise<AllPayPaymentResponse & { order_id: string }> {
+    async createPayment(
+        amount: number, 
+        merchantConfig: MerchantConfig, 
+        description?: string,
+        options?: {
+            lineItems?: Array<{ name: string; price: number; quantity: number; includesVat?: boolean }>;
+            customerEmail?: string;
+            customerName?: string;
+            customerPhone?: string;
+            customerIdNumber?: string;
+            maxInstallments?: number;
+            fixedInstallments?: boolean;
+            expiresAt?: Date;
+            preauthorize?: boolean;
+            showApplePay?: boolean;
+            showBit?: boolean;
+            customField1?: string;
+            customField2?: string;
+            notificationsUrl?: string;
+            successUrl?: string;
+            backlinkUrl?: string;
+        }
+    ): Promise<AllPayPaymentResponse & { order_id: string }> {
         return Promise.race([
-            this._createPaymentInternal(amount, merchantConfig, description),
+            this._createPaymentInternal(amount, merchantConfig, description, options),
             new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error('AllPay API timeout')), 8000)
             )
         ]);
     }
 
-    private async _createPaymentInternal(amount: number, merchantConfig: MerchantConfig, description?: string): Promise<AllPayPaymentResponse & { order_id: string }> {
-        // Create items array - AllPay requires items structure
-        const items = [{
-            name: description || 'Payment',
-            price: amount,
-            qty: 1,
-            vat: 1 // 18% VAT included
-        }];
+    private async _createPaymentInternal(
+        amount: number, 
+        merchantConfig: MerchantConfig, 
+        description?: string,
+        options?: {
+            lineItems?: Array<{ name: string; price: number; quantity: number; includesVat?: boolean }>;
+            customerEmail?: string;
+            customerName?: string;
+            customerPhone?: string;
+            customerIdNumber?: string;
+            maxInstallments?: number;
+            fixedInstallments?: boolean;
+            expiresAt?: Date;
+            preauthorize?: boolean;
+            showApplePay?: boolean;
+            showBit?: boolean;
+            customField1?: string;
+            customField2?: string;
+            notificationsUrl?: string;
+            successUrl?: string;
+            backlinkUrl?: string;
+        }
+    ): Promise<AllPayPaymentResponse & { order_id: string }> {
+        // Create items array - use line items if provided, otherwise create single item
+        const items: AllPayItem[] = options?.lineItems && options.lineItems.length > 0
+            ? options.lineItems.map(item => ({
+                name: item.name,
+                price: item.price,
+                qty: item.quantity,
+                vat: item.includesVat === false ? 3 : 1 // 3 = 0% VAT, 1 = 18% VAT included
+            }))
+            : [{
+                name: description || 'Payment',
+                price: amount,
+                qty: 1,
+                vat: 1 // 18% VAT included
+            }];
 
         const orderId = this.generateOrderId();
 
@@ -58,11 +109,28 @@ export class AllPayApiClient {
             amount: Math.round(amount * 100), // Amount in agorot
             currency: merchantConfig.currency || 'ILS',
             lang: this.mapLanguage(merchantConfig.language || 'he'),
-            notifications_url: `${process.env.BACKEND_URL || 'http://localhost:2894'}/payments/webhook`,
-            success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success`,
-            backlink_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/failure`,
-            expire: Math.floor(Date.now() / 1000) + 3600 // 1 hour expiration
+            notifications_url: options?.notificationsUrl || `${process.env.BACKEND_URL || 'http://localhost:2894'}/payments/webhook`,
+            success_url: options?.successUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success`,
+            backlink_url: options?.backlinkUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/failure`,
+            expire: options?.expiresAt ? Math.floor(options.expiresAt.getTime() / 1000) : Math.floor(Date.now() / 1000) + 3600 // Default 1 hour
         };
+
+        // Add optional fields
+        if (options?.customerName) request.client_name = options.customerName;
+        if (options?.customerEmail) request.client_email = options.customerEmail;
+        if (options?.customerPhone) request.client_phone = options.customerPhone;
+        if (options?.customerIdNumber) request.client_tehudat = options.customerIdNumber;
+        if (options?.maxInstallments && options.maxInstallments >= 1 && options.maxInstallments <= 12) {
+            request.inst = options.maxInstallments;
+        }
+        if (options?.fixedInstallments !== undefined) {
+            request.inst_fixed = options.fixedInstallments ? 1 : 0;
+        }
+        if (options?.preauthorize) request.preauthorize = true;
+        if (options?.showApplePay !== undefined) request.show_applepay = options.showApplePay;
+        if (options?.showBit !== undefined) request.show_bit = options.showBit;
+        if (options?.customField1) request.add_field_1 = options.customField1;
+        if (options?.customField2) request.add_field_2 = options.customField2;
 
         // Generate SHA256 signature
         request.sign = this.getApiSignature(request, this.apiKey);

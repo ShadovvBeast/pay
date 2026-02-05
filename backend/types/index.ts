@@ -24,9 +24,17 @@ export interface Transaction {
   allpayTransactionId: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'partially_refunded';
   description?: string;
+  lineItems?: PublicLineItem[];
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
+  customerIdNumber?: string;
+  maxInstallments?: number;
+  fixedInstallments?: boolean;
+  expiresAt?: Date;
+  preauthorize?: boolean;
+  customField1?: string;
+  customField2?: string;
   successUrl?: string;
   cancelUrl?: string;
   webhookUrl?: string;
@@ -51,9 +59,17 @@ export interface CreateTransactionData {
   paymentUrl: string;
   allpayTransactionId?: string;
   description?: string;
+  lineItems?: PublicLineItem[];
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
+  customerIdNumber?: string;
+  maxInstallments?: number;
+  fixedInstallments?: boolean;
+  expiresAt?: Date;
+  preauthorize?: boolean;
+  customField1?: string;
+  customField2?: string;
   successUrl?: string;
   cancelUrl?: string;
   webhookUrl?: string;
@@ -189,13 +205,30 @@ export interface ApiKeyListResponse {
 }
 
 // Public API Request/Response Types
+export interface PublicLineItem {
+  name: string;
+  price: number;
+  quantity: number;
+  includesVat?: boolean; // true = 18% VAT included, false = 0% VAT
+}
+
 export interface PublicCreatePaymentRequest {
   amount: number;
   currency?: string;
   description?: string;
+  lineItems?: PublicLineItem[]; // Optional line items for itemized payments
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
+  customerIdNumber?: string; // Israeli ID number (tehudat zehut)
+  maxInstallments?: number; // Maximum number of installments (1-12)
+  fixedInstallments?: boolean; // If true, only allow exact installment count
+  expiresAt?: string; // ISO 8601 timestamp for payment expiration
+  preauthorize?: boolean; // If true, only authorize without capturing
+  showApplePay?: boolean; // Show Apple Pay option
+  showBit?: boolean; // Show Bit payment option
+  customField1?: string; // Custom field for merchant use
+  customField2?: string; // Custom field for merchant use
   successUrl?: string;
   cancelUrl?: string;
   webhookUrl?: string;
@@ -210,6 +243,8 @@ export interface PublicPaymentResponse {
   paymentUrl: string;
   qrCodeDataUrl?: string;
   description?: string;
+  lineItems?: PublicLineItem[];
+  expiresAt?: string;
   metadata?: Record<string, any>;
   createdAt: string;
 }
