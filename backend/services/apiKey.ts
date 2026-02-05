@@ -180,7 +180,7 @@ class ApiKeyService {
     const result = await db.query(query, [userId]);
 
 
-    return result.rows.map((row, index) => {
+    return result.rows.map((row) => {
       // Handle JSONB - PostgreSQL returns JSONB as parsed objects, not strings
       let permissions;
       if (Array.isArray(row.permissions)) {
@@ -202,9 +202,19 @@ class ApiKeyService {
         permissions = [];
       }
       
+      // Transform snake_case to camelCase
       return {
-        ...row,
-        permissions
+        id: row.id,
+        userId: row.user_id,
+        name: row.name,
+        keyHash: row.key_hash,
+        prefix: row.prefix,
+        permissions,
+        isActive: row.is_active,
+        lastUsedAt: row.last_used_at,
+        expiresAt: row.expires_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
       };
     });
   }
