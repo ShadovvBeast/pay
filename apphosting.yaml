@@ -14,7 +14,7 @@ build:
 env:
   # Database configuration
   - variable: DATABASE_URL
-    secret: DATABASE_URL
+    secret: SB0PAY_DATABASE_URL
   
   # AllPay API configuration
   - variable: ALLPAY_API_URL
