@@ -215,7 +215,7 @@ export class TransactionRepository {
       allpayTransactionId: row.allpay_transaction_id,
       status: row.status,
       description: row.description,
-      lineItems: row.line_items ? JSON.parse(row.line_items) : undefined,
+      lineItems: row.line_items ? (typeof row.line_items === 'string' ? JSON.parse(row.line_items) : row.line_items) : undefined,
       customerEmail: row.customer_email,
       customerName: row.customer_name,
       customerPhone: row.customer_phone,
@@ -229,7 +229,7 @@ export class TransactionRepository {
       successUrl: row.success_url,
       cancelUrl: row.cancel_url,
       webhookUrl: row.webhook_url,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : undefined,
       apiKeyId: row.api_key_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at
