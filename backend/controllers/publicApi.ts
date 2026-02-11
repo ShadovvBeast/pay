@@ -217,7 +217,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
         quantity: t.Number({ minimum: 1 }),
         includesVat: t.Optional(t.Boolean())
       }))),
-      customerEmail: t.Optional(t.String({ maxLength: 255 })), // Changed from format: 'email' to maxLength for flexibility
+      customerEmail: t.Optional(t.String({ maxLength: 320 })), // RFC 5321 max email length
       customerName: t.Optional(t.String({ maxLength: 255 })),
       customerPhone: t.Optional(t.String({ maxLength: 50 })),
       customerIdNumber: t.Optional(t.String({ maxLength: 20 })),
