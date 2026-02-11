@@ -13,6 +13,11 @@ export const docsController = new Elysia({ prefix: '/docs' })
       version: '1.1.0',
       description: 'Comprehensive payment processing API with line items, installments, and advanced AllPay features',
       baseUrl: '/api/v1',
+      importantNotes: {
+        amountFormat: 'All amounts are in decimal format (e.g., 342.60 for 342.60 ILS), NOT in minor units',
+        lineItems: 'When using lineItems, the sum of (price × quantity) for all items must equal the total amount (±0.01 tolerance)',
+        validation: 'URLs and emails are validated for format but allow flexibility for special characters'
+      },
       authentication: {
         type: 'Bearer Token',
         description: 'Include your API key in the Authorization header',
@@ -24,10 +29,10 @@ export const docsController = new Elysia({ prefix: '/docs' })
             description: 'Create a new payment',
             permissions: ['payments:create'],
             body: {
-              amount: 'number (required) - Amount in the smallest currency unit',
+              amount: 'number (required) - Amount in decimal format (e.g., 100.50 for 100.50 ILS)',
               currency: 'string (optional) - 3-letter currency code (defaults to user currency)',
               description: 'string (optional) - Payment description',
-              lineItems: 'array (optional) - Array of line items for itemized payments',
+              lineItems: 'array (optional) - Array of line items for itemized payments. Sum of (price × quantity) must equal amount.',
               customerEmail: 'string (optional) - Customer email address',
               customerName: 'string (optional) - Customer name',
               customerPhone: 'string (optional) - Customer phone number',
