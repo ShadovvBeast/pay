@@ -5,6 +5,89 @@ All notable changes to SB0 Pay will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-11
+
+### 🚀 Added
+
+#### Language & Currency Overrides
+- **Per-Request Language**: Override merchant default language per payment request
+- **Supported Languages**: Hebrew (he), English (en), Arabic (ar), Russian (ru), Auto-detect (auto)
+- **Per-Request Currency**: Override merchant default currency per payment request
+- **Supported Currencies**: ILS, USD, EUR (via AllPay)
+- **Flexible Configuration**: Defaults to merchant settings when not specified
+
+### 🐛 Fixed
+
+#### Line Items Support
+- **Critical Bug Fix**: Line item prices now correctly converted to minor units (agorot) for AllPay API
+- **Amount Format Clarification**: API accepts decimal amounts (e.g., 342.60), not minor units
+- **Validation Improvements**: Removed overly strict format validators for URLs and emails
+- **Database Mapping**: Fixed missing line items and enhanced payment fields in repository mapping
+- **JSONB Handling**: Proper handling of PostgreSQL JSONB columns that return objects directly
+- **Transaction Creation**: All enhanced payment fields now properly stored in database
+
+### 🔧 Enhanced
+
+#### API Documentation
+- **Version 1.2.0**: Updated API version to reflect new features
+- **Amount Format**: Clarified that amounts are in decimal format, not minor units
+- **Line Items Validation**: Added note about sum validation (±0.01 tolerance)
+- **Language Parameter**: Documented new language parameter with supported values
+- **Currency Parameter**: Enhanced currency documentation with supported currencies
+- **Important Notes Section**: Added section highlighting key API behaviors
+
+#### Error Handling
+- **Detailed Validation Errors**: Improved error messages to show specific validation failures
+- **Better Debugging**: Enhanced error responses with structured validation details
+- **User-Friendly Messages**: Clearer error messages for common validation issues
+
+### 📚 Documentation Updates
+- **LINE_ITEMS_FIX_SUMMARY.md**: Comprehensive documentation of line items bug fix
+- **API Examples**: Updated examples to show correct decimal amount format
+- **Language Examples**: Added examples showing language parameter usage
+- **Currency Examples**: Added examples showing currency override usage
+
+### 🛠️ Technical Details
+
+#### Modified Files
+- `backend/services/allpay.ts` - Fixed line item price conversion to minor units
+- `backend/controllers/publicApi.ts` - Added language parameter, relaxed validation
+- `backend/services/payment.ts` - Pass currency and language overrides to AllPay
+- `backend/services/repository.ts` - Fixed JSONB parsing and added missing fields
+- `backend/types/index.ts` - Added language field to request types
+- `backend/controllers/docs.ts` - Updated version and documentation
+- `backend/index.ts` - Improved validation error handling
+
+### 🎯 Breaking Changes
+None - All changes are backward compatible. Existing integrations continue working without modification.
+
+### 💡 Example Usage
+
+```json
+{
+  "amount": 342.6,
+  "currency": "ILS",
+  "language": "en",
+  "description": "International Order",
+  "lineItems": [
+    {
+      "name": "Product A",
+      "price": 82.6,
+      "quantity": 1,
+      "includesVat": true
+    },
+    {
+      "name": "Shipping to US",
+      "price": 260,
+      "quantity": 1,
+      "includesVat": false
+    }
+  ]
+}
+```
+
+---
+
 ## [0.4.0] - 2025-02-05
 
 ### 🚀 Added - Enhanced Payment Features & AllPay Capabilities

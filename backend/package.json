@@ -1,6 +1,6 @@
 {
   "name": "@sb0-pay/backend",
-  "version": "0.4.0",
+  "version": "1.2.0",
   "description": "SB0 Pay Backend API Server",
   "private": true,
   "type": "module",

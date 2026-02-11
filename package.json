@@ -1,6 +1,6 @@
 {
   "name": "sb0-pay",
-  "version": "0.4.0",
+  "version": "1.2.0",
   "description": "SB0 Pay - Comprehensive Payment Processing Platform",
   "private": true,
   "workspaces": [

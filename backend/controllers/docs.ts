@@ -10,8 +10,8 @@ export const docsController = new Elysia({ prefix: '/docs' })
   .get('/', () => {
     return {
       title: 'SB0 Pay API Documentation',
-      version: '1.1.0',
-      description: 'Comprehensive payment processing API with line items, installments, and advanced AllPay features',
+      version: '1.2.0',
+      description: 'Comprehensive payment processing API with line items, installments, language/currency overrides, and advanced AllPay features',
       baseUrl: '/api/v1',
       importantNotes: {
         amountFormat: 'All amounts are in decimal format (e.g., 342.60 for 342.60 ILS), NOT in minor units',
