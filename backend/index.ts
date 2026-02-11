@@ -37,11 +37,41 @@ async function startServer() {
         // Handle validation errors from Elysia
         if (code === 'VALIDATION') {
           set.status = 400;
+          
+          // Try to parse the validation error details
+          let validationDetails: any = error.message || 'Invalid request format';
+          
+          // Elysia validation errors often contain structured information
+          if (error.message && typeof error.message === 'string') {
+            try {
+              // Try to extract meaningful validation info
+              const errorStr = error.message;
+              
+              // Check if it's a TypeBox validation error with path info
+              if (errorStr.includes('Expected') || errorStr.includes('Required')) {
+                validationDetails = {
+                  message: errorStr,
+                  hint: 'Check that all required fields are present and have the correct type'
+                };
+              }
+            } catch (e) {
+              // Keep original message if parsing fails
+            }
+          }
+          
+          // Check if error has a 'validator' property with more details
+          if ((error as any).validator) {
+            validationDetails = {
+              message: error.message,
+              validator: (error as any).validator
+            };
+          }
+          
           return {
             error: {
               code: 'VALIDATION_ERROR',
-              message: 'Request validation failed. Please check your request body, parameters, or query string.',
-              details: error.message || 'Invalid request format',
+              message: 'Request validation failed',
+              details: validationDetails,
               type: 'invalid_request'
             },
             timestamp: new Date().toISOString()
