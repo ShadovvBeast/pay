@@ -71,3 +71,11 @@ Thumbs.db
 # Misc
 .vercel
 .netlify
+
+# Service account keys
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!firebase.json
+!.firebaserc
