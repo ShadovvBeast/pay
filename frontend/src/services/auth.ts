@@ -12,12 +12,15 @@ class AuthService {
   }
 
   async register(data: RegisterData): Promise<AuthResponse> {
+    // Remove confirmPassword before sending to backend
+    const { confirmPassword, ...registerPayload } = data;
+    
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(registerPayload),
     });
 
     if (!response.ok) {
