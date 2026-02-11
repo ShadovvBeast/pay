@@ -96,7 +96,7 @@ export interface ErrorResponse {
 // AllPay API Types - Based on official AllPay API documentation
 export interface AllPayItem {
   name: string;
-  price: number;
+  price: number; // Price in main currency units (e.g., shekels for ILS), NOT minor units
   qty: number;
   vat: number; // 0 = No VAT, 1 = 18% VAT, 3 = 0% VAT
 }
