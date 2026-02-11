@@ -30,3 +30,5 @@ images:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+serviceAccount: 'projects/sbzero/serviceAccounts/678576192331-compute@developer.gserviceaccount.com'
