@@ -9,6 +9,8 @@ import type {
 
 export interface CreatePaymentRequest {
   amount: number;
+  currency?: string;
+  language?: string;
   description?: string;
   lineItems?: Array<{ name: string; price: number; quantity: number; includesVat?: boolean }>;
   customerEmail?: string;
@@ -76,7 +78,11 @@ export class PaymentService {
       // Create payment with AllPay
       const allPayResponse = await allPayClient.createPayment(
         request.amount,
-        user.merchantConfig,
+        {
+          ...user.merchantConfig,
+          currency: request.currency || user.merchantConfig.currency,
+          language: request.language || user.merchantConfig.language
+        },
         request.description,
         {
           lineItems: request.lineItems,

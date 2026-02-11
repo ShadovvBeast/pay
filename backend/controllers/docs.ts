@@ -30,7 +30,8 @@ export const docsController = new Elysia({ prefix: '/docs' })
             permissions: ['payments:create'],
             body: {
               amount: 'number (required) - Amount in decimal format (e.g., 100.50 for 100.50 ILS)',
-              currency: 'string (optional) - 3-letter currency code (defaults to user currency)',
+              currency: 'string (optional) - 3-letter currency code (defaults to merchant currency). Supported: ILS, USD, EUR',
+              language: 'string (optional) - Payment page language (defaults to merchant language). Supported: he, en, ar, ru, auto',
               description: 'string (optional) - Payment description',
               lineItems: 'array (optional) - Array of line items for itemized payments. Sum of (price × quantity) must equal amount.',
               customerEmail: 'string (optional) - Customer email address',
@@ -355,7 +356,8 @@ payment = response.json()`
                     required: ['amount'],
                     properties: {
                       amount: { type: 'number', minimum: 0.01 },
-                      currency: { type: 'string', pattern: '^[A-Z]{3}$' },
+                      currency: { type: 'string', pattern: '^[A-Z]{3}$', description: 'Currency code (ILS, USD, EUR)' },
+                      language: { type: 'string', pattern: '^(he|en|ar|ru|auto)$', description: 'Payment page language' },
                       description: { type: 'string' },
                       lineItems: {
                         type: 'array',

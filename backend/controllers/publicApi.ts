@@ -58,6 +58,9 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
 
       // Use user's currency if not specified
       const currency = paymentData.currency || currentUser.merchantConfig.currency;
+      
+      // Use user's language if not specified
+      const language = paymentData.language || currentUser.merchantConfig.language;
 
       // Parse expiresAt if provided
       let expiresAt: Date | undefined;
@@ -119,6 +122,8 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       // Create enhanced payment data
       const enhancedPaymentData = {
         amount: paymentData.amount,
+        currency: currency,
+        language: language,
         description: paymentData.description,
         lineItems: paymentData.lineItems,
         customerEmail: paymentData.customerEmail,
@@ -210,6 +215,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
     body: t.Object({
       amount: t.Number({ minimum: 0.01, maximum: 999999.99 }),
       currency: t.Optional(t.String({ pattern: '^[A-Z]{3}$' })),
+      language: t.Optional(t.String({ pattern: '^(he|en|ar|ru|auto)$' })),
       description: t.Optional(t.String({ maxLength: 255 })),
       lineItems: t.Optional(t.Array(t.Object({
         name: t.String({ minLength: 1, maxLength: 255 }),

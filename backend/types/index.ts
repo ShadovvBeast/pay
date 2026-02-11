@@ -215,6 +215,7 @@ export interface PublicLineItem {
 export interface PublicCreatePaymentRequest {
   amount: number;
   currency?: string;
+  language?: string; // Payment page language: 'he', 'en', 'ar', 'ru', or 'auto'
   description?: string;
   lineItems?: PublicLineItem[]; // Optional line items for itemized payments
   customerEmail?: string;
