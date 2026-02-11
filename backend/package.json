@@ -15,7 +15,11 @@
     "test:coverage": "bun test --coverage",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "diagnose": "bun run scripts/diagnose-production.ts",
+    "check-key": "bun run scripts/check-api-key.ts",
+    "register-merchant": "bun run scripts/register-merchant.ts",
+    "test-api": "bun run scripts/test-api-payment.ts"
   },
   "dependencies": {
     "@elysiajs/cookie": "^0.8.0",

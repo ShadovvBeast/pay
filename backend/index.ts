@@ -33,6 +33,61 @@ async function startServer() {
         name: 'jwt',
         secret: config.jwt.secret
       }))
+      .onError(({ code, error, set }) => {
+        // Handle validation errors from Elysia
+        if (code === 'VALIDATION') {
+          set.status = 400;
+          return {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Request validation failed. Please check your request body, parameters, or query string.',
+              details: error.message || 'Invalid request format',
+              type: 'invalid_request'
+            },
+            timestamp: new Date().toISOString()
+          };
+        }
+        
+        // Handle parse errors (malformed JSON, etc.)
+        if (code === 'PARSE') {
+          set.status = 400;
+          return {
+            error: {
+              code: 'PARSE_ERROR',
+              message: 'Failed to parse request body. Ensure you are sending valid JSON.',
+              type: 'invalid_request'
+            },
+            timestamp: new Date().toISOString()
+          };
+        }
+        
+        // Handle not found errors
+        if (code === 'NOT_FOUND') {
+          set.status = 404;
+          return {
+            error: {
+              code: 'NOT_FOUND',
+              message: 'The requested endpoint does not exist',
+              type: 'invalid_request'
+            },
+            timestamp: new Date().toISOString()
+          };
+        }
+        
+        // Log unexpected errors
+        console.error('Unhandled error:', { code, error: error.message, stack: error.stack });
+        
+        // Generic error response
+        set.status = 500;
+        return {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'An unexpected error occurred',
+            type: 'api_error'
+          },
+          timestamp: new Date().toISOString()
+        };
+      })
       .get('/', () => 'SB0 Pay API Server')
       .get('/health', () => {
         const dbStatus = db.getConnectionStatus();

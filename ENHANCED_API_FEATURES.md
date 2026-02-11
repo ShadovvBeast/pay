@@ -222,8 +222,8 @@ All new fields are optional. Existing API integrations will continue to work wit
 ## Updated Documentation
 
 The API documentation has been updated to reflect all new features:
-- `/api/docs` - Interactive documentation
-- `/api/docs/openapi.json` - OpenAPI 3.0 specification
+- `/docs` - Interactive documentation
+- `/docs/openapi.json` - OpenAPI 3.0 specification
 
 ## Implementation Details
 
@@ -251,11 +251,11 @@ The API documentation has been updated to reflect all new features:
 1. Run the database migration: `bun run db:migrate`
 2. Test the new features with your API key
 3. Update your integration to use line items and other features as needed
-4. Review the updated API documentation at `/api/docs`
+4. Review the updated API documentation at `/docs`
 
 ## Support
 
 For questions or issues with the new features, refer to:
-- API Documentation: `/api/docs`
-- OpenAPI Spec: `/api/docs/openapi.json`
+- API Documentation: `/docs`
+- OpenAPI Spec: `/docs/openapi.json`
 - Migration file: `backend/database/migrations/004_add_payment_features.sql`

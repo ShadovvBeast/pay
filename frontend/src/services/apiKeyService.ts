@@ -5,6 +5,7 @@ import type {
   UpdateApiKeyRequest,
   ApiKeyUsageStats 
 } from '../types/apiKey';
+import { extractErrorMessage } from '../utils/errorHandler';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -24,7 +25,11 @@ class ApiKeyService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+      const message = extractErrorMessage(
+        errorData, 
+        `Request failed with status ${response.status}`
+      );
+      throw new Error(message);
     }
 
     return response.json();

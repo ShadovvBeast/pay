@@ -1,4 +1,5 @@
 // Payment service types (imported for future use)
+import { handleApiError } from '../utils/errorHandler';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:2894';
 
@@ -60,8 +61,7 @@ class PaymentService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Payment creation failed');
+      await handleApiError(response, 'Payment creation failed');
     }
 
     return await response.json();
@@ -73,8 +73,7 @@ class PaymentService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to get payment status');
+      await handleApiError(response, 'Failed to get payment status');
     }
 
     return await response.json();
@@ -91,8 +90,7 @@ class PaymentService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to get transaction history');
+      await handleApiError(response, 'Failed to get transaction history');
     }
 
     return await response.json();
@@ -115,8 +113,7 @@ class PaymentService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to get transaction details');
+      await handleApiError(response, 'Failed to get transaction details');
     }
 
     return await response.json();
@@ -133,8 +130,7 @@ class PaymentService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to process refund');
+      await handleApiError(response, 'Failed to process refund');
     }
 
     return await response.json();
@@ -147,8 +143,7 @@ class PaymentService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to cancel payment');
+      await handleApiError(response, 'Failed to cancel payment');
     }
 
     return await response.json();

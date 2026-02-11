@@ -1,4 +1,5 @@
 import { RegisterData, LoginData, AuthResponse, User } from '../types/auth';
+import { handleApiError } from '../utils/errorHandler';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:2894';
 
@@ -24,8 +25,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Registration failed');
+      await handleApiError(response, 'Registration failed');
     }
 
     const result = await response.json();
@@ -49,8 +49,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Login failed');
+      await handleApiError(response, 'Login failed');
     }
 
     const result = await response.json();
@@ -159,8 +158,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to update user');
+      await handleApiError(response, 'Failed to update user');
     }
 
     const result = await response.json();
