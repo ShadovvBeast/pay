@@ -217,7 +217,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
         quantity: t.Number({ minimum: 1 }),
         includesVat: t.Optional(t.Boolean())
       }))),
-      customerEmail: t.Optional(t.String({ format: 'email' })),
+      customerEmail: t.Optional(t.String({ maxLength: 255 })), // Changed from format: 'email' to maxLength for flexibility
       customerName: t.Optional(t.String({ maxLength: 255 })),
       customerPhone: t.Optional(t.String({ maxLength: 50 })),
       customerIdNumber: t.Optional(t.String({ maxLength: 20 })),
@@ -229,9 +229,9 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       showBit: t.Optional(t.Boolean()),
       customField1: t.Optional(t.String({ maxLength: 255 })),
       customField2: t.Optional(t.String({ maxLength: 255 })),
-      successUrl: t.Optional(t.String({ format: 'uri' })),
-      cancelUrl: t.Optional(t.String({ format: 'uri' })),
-      webhookUrl: t.Optional(t.String({ format: 'uri' })),
+      successUrl: t.Optional(t.String({ maxLength: 2048 })), // Changed from format: 'uri' to maxLength
+      cancelUrl: t.Optional(t.String({ maxLength: 2048 })), // Changed from format: 'uri' to maxLength
+      webhookUrl: t.Optional(t.String({ maxLength: 2048 })), // Changed from format: 'uri' to maxLength
       metadata: t.Optional(t.Record(t.String(), t.Any()))
     })
   })
