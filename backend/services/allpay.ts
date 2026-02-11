@@ -85,16 +85,17 @@ export class AllPayApiClient {
         }
     ): Promise<AllPayPaymentResponse & { order_id: string }> {
         // Create items array - use line items if provided, otherwise create single item
+        // IMPORTANT: AllPay expects prices in minor units (agorot for ILS)
         const items: AllPayItem[] = options?.lineItems && options.lineItems.length > 0
             ? options.lineItems.map(item => ({
                 name: item.name,
-                price: item.price,
+                price: Math.round(item.price * 100), // Convert to minor units (agorot)
                 qty: item.quantity,
                 vat: item.includesVat === false ? 3 : 1 // 3 = 0% VAT, 1 = 18% VAT included
             }))
             : [{
                 name: description || 'Payment',
-                price: amount,
+                price: Math.round(amount * 100), // Convert to minor units (agorot)
                 qty: 1,
                 vat: 1 // 18% VAT included
             }];
