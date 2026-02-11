@@ -12,11 +12,7 @@ export class DatabaseService {
 
   private constructor() {
     this.pool = new Pool({
-      host: config.database.host,
-      port: config.database.port,
-      database: config.database.name,
-      user: config.database.user,
-      password: config.database.password,
+      connectionString: config.database.url,
       // Connection pool settings
       min: 2, // Minimum connections in pool
       max: 10, // Maximum connections in pool
