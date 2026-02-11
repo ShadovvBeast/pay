@@ -160,10 +160,12 @@ export class TransactionRepository {
     const query = `
       INSERT INTO transactions (
         user_id, amount, currency, payment_url, allpay_transaction_id,
-        description, customer_email, customer_name, customer_phone,
+        description, line_items, customer_email, customer_name, customer_phone,
+        customer_id_number, max_installments, fixed_installments, expires_at,
+        preauthorize, custom_field_1, custom_field_2,
         success_url, cancel_url, webhook_url, metadata, api_key_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING *
     `;
 
@@ -174,9 +176,17 @@ export class TransactionRepository {
       transactionData.paymentUrl,
       transactionData.allpayTransactionId || null,
       transactionData.description || null,
+      transactionData.lineItems ? JSON.stringify(transactionData.lineItems) : null,
       transactionData.customerEmail || null,
       transactionData.customerName || null,
       transactionData.customerPhone || null,
+      transactionData.customerIdNumber || null,
+      transactionData.maxInstallments || null,
+      transactionData.fixedInstallments || null,
+      transactionData.expiresAt || null,
+      transactionData.preauthorize || null,
+      transactionData.customField1 || null,
+      transactionData.customField2 || null,
       transactionData.successUrl || null,
       transactionData.cancelUrl || null,
       transactionData.webhookUrl || null,
