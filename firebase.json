@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "sb0pay",
     "public": "frontend/dist",
     "ignore": [
       "firebase.json",
