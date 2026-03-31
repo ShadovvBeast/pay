@@ -12,7 +12,7 @@
     },
     "backend": {
       "name": "@sb0-pay/backend",
-      "version": "0.4.0",
+      "version": "1.2.0",
       "dependencies": {
         "@elysiajs/cookie": "^0.8.0",
         "@elysiajs/cors": "^0.8.0",
@@ -40,7 +40,7 @@
     },
     "frontend": {
       "name": "@sb0-pay/frontend",
-      "version": "0.4.0",
+      "version": "1.2.0",
       "dependencies": {
         "i18next": "^25.4.2",
         "i18next-http-backend": "^3.0.2",
