@@ -17,7 +17,7 @@ export class DatabaseService {
       min: 2, // Minimum connections in pool
       max: 10, // Maximum connections in pool
       idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-      connectionTimeoutMillis: 2000, // Return error after 2 seconds if connection cannot be established
+      connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection cannot be established (Neon cold starts can take a few seconds)
       // acquireTimeoutMillis: 60000, // Return error after 60 seconds if connection cannot be acquired
     });
 

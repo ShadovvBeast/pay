@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { PaymentSuccess } from './pages/PaymentSuccess';
 import { PaymentFailure } from './pages/PaymentFailure';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Home } from './pages/Home';
 import './App.css';
 
 const AppRoutes: React.FC = () => {
@@ -25,6 +26,10 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route 
+        path="/" 
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Home />} 
+      />
+      <Route 
         path="/auth" 
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />} 
       />
@@ -43,10 +48,6 @@ const AppRoutes: React.FC = () => {
       <Route 
         path="/payment/failure" 
         element={<PaymentFailure />} 
-      />
-      <Route 
-        path="/" 
-        element={<Navigate to={isAuthenticated ? "/dashboard" : "/auth"} replace />} 
       />
     </Routes>
   );
