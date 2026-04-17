@@ -79,3 +79,6 @@ Thumbs.db
 !tsconfig.json
 !firebase.json
 !.firebaserc
+
+# Frontend design iterations
+frontend_V3/

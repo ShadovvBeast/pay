@@ -1,255 +1,239 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { PaymentFlow } from '../components/PaymentFlow';
-import { PWAStatus } from '../components/PWAStatus';
 import { PWAInstallPrompt } from '../components/PWAInstallPrompt';
 import { TransactionHistory } from '../components/TransactionHistory';
 import { Settings } from '../components/Settings';
+import { paymentService } from '../services/payment';
+import {
+  LayoutDashboard, CreditCard, List, Settings as SettingsIcon,
+  LogOut, Store, Globe, Plus,
+  TrendingUp, ArrowUpRight, CheckCircle2,
+} from 'lucide-react';
+import logo from '../assets/logo.png';
 
-type DashboardView = 'overview' | 'payment' | 'transactions' | 'settings';
+type View = 'overview' | 'payment' | 'transactions' | 'settings';
+
+const navItems: { view: View; icon: typeof LayoutDashboard; label: string }[] = [
+  { view: 'overview', icon: LayoutDashboard, label: 'Overview' },
+  { view: 'payment', icon: CreditCard, label: 'Payment' },
+  { view: 'transactions', icon: List, label: 'History' },
+  { view: 'settings', icon: SettingsIcon, label: 'Settings' },
+];
+
+const SYM: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€', UGX: 'USh' };
+const LANG: Record<string, string> = { he: 'Hebrew', en: 'English', ru: 'Russian', ar: 'Arabic' };
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [currentView, setCurrentView] = useState<DashboardView>('overview');
-  const [successMessage, setSuccessMessage] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const { theme } = useTheme();
+  const [view, setView] = useState<View>('overview');
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
 
-  const handlePaymentComplete = (transactionId: string) => {
-    setSuccessMessage(`Payment completed successfully! Transaction ID: ${transactionId}`);
-    // Auto-hide success message after 5 seconds
-    setTimeout(() => setSuccessMessage(''), 5000);
-  };
+  // Stats
+  const [stats, setStats] = useState({ revenue: 0, total: 0, completed: 0 });
+  useEffect(() => {
+    paymentService.getTransactionHistory(100, 0)
+      .then(r => {
+        const txs = r.transactions || [];
+        const today = new Date().toISOString().slice(0, 10);
+        const completed = txs.filter((t: any) => t.status === 'completed');
+        const todayRevenue = completed
+          .filter((t: any) => t.createdAt?.slice?.(0, 10) === today)
+          .reduce((s: number, t: any) => s + (t.amount || 0), 0);
+        setStats({ revenue: todayRevenue, total: txs.length, completed: completed.length });
+      })
+      .catch(() => {});
+  }, [view]);
 
-  const handlePaymentError = (error: string) => {
-    setErrorMessage(error);
-    // Auto-hide error message after 5 seconds
-    setTimeout(() => setErrorMessage(''), 5000);
-  };
-
-  const clearMessages = () => {
-    setSuccessMessage('');
-    setErrorMessage('');
-  };
+  const go = (v: View) => { setView(v); setSuccess(''); setError(''); };
+  const currency = user?.merchantConfig?.currency || 'ILS';
+  const sym = SYM[currency] || currency;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex items-center space-x-2">
-                <img
-                  src="/favicon-32x32.png"
-                  alt="SB0 Pay logo"
-                  className="h-7 w-7 rounded-lg"
-                />
-                <h1 className="text-xl font-semibold text-gray-900">
-                  SB0 Pay
-                </h1>
-              </div>
-              {currentView !== 'overview' && (
-                <button
-                  onClick={() => {
-                    setCurrentView('overview');
-                    clearMessages();
-                  }}
-                  className="ml-4 text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  ← Back to Dashboard
-                </button>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700 hidden sm:block">
-                {user?.shopName}
-              </span>
-              <PWAStatus className="hidden sm:block" />
-              <button
-                onClick={logout}
-                className="btn-secondary"
-              >
-                Sign Out
-              </button>
-            </div>
+    <div className={`min-h-screen bg-background ${theme}`}>
+      {/* ── Top header ─────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 glass border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+          <div className="flex items-center gap-3">
+            <button onClick={() => go('overview')} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+              <img src={logo} alt="SB0 Pay" className="h-7 w-auto rounded-md" />
+              <span className="font-semibold tracking-tight hidden sm:inline text-foreground">SB0 Pay</span>
+            </button>
+            {view !== 'overview' && (
+              <button onClick={() => go('overview')} className="text-sm text-primary hover:underline ml-2">← Dashboard</button>
+            )}
           </div>
-          {/* Mobile PWA Status */}
-          <div className="sm:hidden px-4 pb-3">
-            <PWAStatus className="text-xs" />
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:block text-xs text-muted-foreground">{user?.shopName}</span>
+            <button onClick={logout} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
           </div>
+        </div>
+      </header>
+
+      {/* ── Bottom mobile nav ──────────────────────────────────── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-border md:hidden safe-area-inset">
+        <div className="flex">
+          {navItems.map(item => (
+            <button key={item.view} onClick={() => go(item.view)}
+              className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${view === item.view ? 'text-primary' : 'text-muted-foreground'}`}>
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {view === item.view && <div className="w-1 h-1 rounded-full bg-primary" />}
+            </button>
+          ))}
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Success/Error Messages */}
-          {successMessage && (
-            <div className="mb-6 max-w-md mx-auto">
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                <div className="text-2xl mb-2">✅</div>
-                <p className="text-green-800 font-medium">{successMessage}</p>
-                <button
-                  onClick={() => setSuccessMessage('')}
-                  className="mt-2 text-green-600 hover:text-green-700 text-sm underline"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="mb-6 max-w-md mx-auto">
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-                <div className="text-2xl mb-2">❌</div>
-                <p className="text-red-800 font-medium">{errorMessage}</p>
-                <button
-                  onClick={() => setErrorMessage('')}
-                  className="mt-2 text-red-600 hover:text-red-700 text-sm underline"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Payment View */}
-          {currentView === 'payment' && (
-            <div className="max-w-md mx-auto">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Create Payment
-                </h2>
-                <p className="text-gray-600">
-                  Enter the amount to generate a payment QR code
-                </p>
-              </div>
-
-              <PaymentFlow
-                onPaymentComplete={handlePaymentComplete}
-                onPaymentError={handlePaymentError}
-              />
-            </div>
-          )}
-
-          {/* Overview/Dashboard View */}
-          {currentView === 'overview' && (
-            <>
-              {/* Quick Payment Button - Mobile First */}
-              <div className="mb-8 max-w-md mx-auto">
-                <button
-                  onClick={() => setCurrentView('payment')}
-                  className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-6 px-8 rounded-2xl text-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200"
-                >
-                  💳 Create Payment
-                </button>
-              </div>
-
-              {/* PWA Install Prompt */}
-              <div className="mb-8 max-w-md mx-auto">
-                <PWAInstallPrompt />
-              </div>
-
-              {/* Dashboard Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="card">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Shop Information
-                  </h3>
-                  <dl className="space-y-2">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Shop Name</dt>
-                      <dd className="text-sm text-gray-900">{user?.shopName}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Owner</dt>
-                      <dd className="text-sm text-gray-900">{user?.ownerName}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Email</dt>
-                      <dd className="text-sm text-gray-900">{user?.email}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="card">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Business Configuration
-                  </h3>
-                  <dl className="space-y-2">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Company Number (ח"פ)</dt>
-                      <dd className="text-sm text-gray-900">{user?.merchantConfig.companyNumber}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Currency</dt>
-                      <dd className="text-sm text-gray-900">
-                        {user?.merchantConfig.currency === 'ILS' ? 'Israeli Shekel (₪)' :
-                          user?.merchantConfig.currency === 'USD' ? 'US Dollar ($)' :
-                            user?.merchantConfig.currency === 'EUR' ? 'Euro (€)' :
-                              user?.merchantConfig.currency}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Language</dt>
-                      <dd className="text-sm text-gray-900">
-                        {user?.merchantConfig.language === 'he' ? 'עברית (Hebrew)' :
-                          user?.merchantConfig.language === 'en' ? 'English' :
-                            user?.merchantConfig.language === 'ru' ? 'Русский (Russian)' :
-                              user?.merchantConfig.language === 'ar' ? 'العربية (Arabic)' :
-                                user?.merchantConfig.language}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="card">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Quick Actions
-                  </h3>
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setCurrentView('payment')}
-                      className="btn-primary w-full"
-                    >
-                      Create Payment
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('transactions')}
-                      className="btn-secondary w-full"
-                    >
-                      View Transactions
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('settings')}
-                      className="btn-secondary w-full"
-                    >
-                      Settings
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Transactions View */}
-          {currentView === 'transactions' && (
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Transaction History
-                </h2>
-                <p className="text-gray-600">
-                  View your recent payment transactions
-                </p>
-              </div>
-
-              <TransactionHistory />
-            </div>
-          )}
-
-          {/* Settings View */}
-          {currentView === 'settings' && <Settings />}
+      {/* ── Main ───────────────────────────────────────────────── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
+        {/* Desktop nav pills */}
+        <div className="hidden md:flex gap-2 mb-6">
+          {navItems.map(item => (
+            <button key={item.view} onClick={() => go(item.view)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                view === item.view ? 'bg-primary text-primary-foreground shadow-glow' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+              }`}>
+              <item.icon className="h-4 w-4" /> {item.label}
+            </button>
+          ))}
         </div>
+
+        {/* Alerts */}
+        {success && (
+          <div className="mb-6 glass rounded-2xl p-4 text-center border border-primary/30">
+            <p className="text-primary font-medium text-sm">✅ {success}</p>
+            <button onClick={() => setSuccess('')} className="text-xs text-primary hover:underline mt-1">Dismiss</button>
+          </div>
+        )}
+        {error && (
+          <div className="mb-6 glass rounded-2xl p-4 text-center border border-destructive/30">
+            <p className="text-destructive font-medium text-sm">❌ {error}</p>
+            <button onClick={() => setError('')} className="text-xs text-destructive hover:underline mt-1">Dismiss</button>
+          </div>
+        )}
+
+        {/* ── Overview ───────────────────────────────────────────── */}
+        {view === 'overview' && (
+          <div className="space-y-6 animate-fade-up">
+            {/* Full-width Create Payment CTA */}
+            <button
+              onClick={() => go('payment')}
+              className="w-full h-16 rounded-2xl bg-primary text-primary-foreground text-lg font-semibold shadow-glow hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 group"
+            >
+              <Plus className="h-6 w-6 group-hover:rotate-90 transition-transform duration-300" />
+              Create Payment
+            </button>
+
+            {/* Stats row — 3 cards */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-card rounded-2xl border border-border p-4 text-center hover:border-primary/30 hover:shadow-soft transition-all">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <ArrowUpRight className="h-3 w-3 text-primary" />
+                </div>
+                <p className="text-2xl font-display font-bold text-card-foreground">{sym}{stats.revenue.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Today's Revenue</p>
+              </div>
+              <div className="bg-card rounded-2xl border border-border p-4 text-center hover:border-primary/30 hover:shadow-soft transition-all">
+                <p className="text-2xl font-display font-bold text-card-foreground mt-2">{stats.total}</p>
+                <p className="text-xs text-muted-foreground">Total Transactions</p>
+              </div>
+              <div className="bg-card rounded-2xl border border-border p-4 text-center hover:border-primary/30 hover:shadow-soft transition-all">
+                <div className="flex items-center justify-center mb-1">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                </div>
+                <p className="text-2xl font-display font-bold text-card-foreground">{stats.completed}</p>
+                <p className="text-xs text-muted-foreground">Completed</p>
+              </div>
+            </div>
+
+            {/* Info cards row */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Shop Info */}
+              <div className="bg-card rounded-2xl border border-border p-5 hover:border-primary/30 hover:shadow-soft transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Store className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-card-foreground">Shop Info</h3>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Shop</span><span className="text-card-foreground font-medium">{user?.shopName || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Owner</span><span className="text-card-foreground font-medium">{user?.ownerName || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="text-card-foreground font-medium">{user?.email || '—'}</span></div>
+                </div>
+              </div>
+
+              {/* Configuration */}
+              <div className="bg-card rounded-2xl border border-border p-5 hover:border-primary/30 hover:shadow-soft transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Globe className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-card-foreground">Configuration</h3>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Reg. Number</span><span className="text-card-foreground font-mono">{user?.merchantConfig?.companyNumber || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span className="text-card-foreground">{sym} {currency}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Language</span><span className="text-card-foreground">{LANG[user?.merchantConfig?.language || ''] || user?.merchantConfig?.language || '—'}</span></div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-card rounded-2xl border border-border p-5 hover:border-primary/30 hover:shadow-soft transition-all">
+                <h3 className="font-semibold text-card-foreground mb-3">Quick Actions</h3>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Create Payment', icon: CreditCard, v: 'payment' as View },
+                    { label: 'View Transactions', icon: List, v: 'transactions' as View },
+                    { label: 'Settings', icon: SettingsIcon, v: 'settings' as View },
+                  ].map(a => (
+                    <button key={a.label} onClick={() => go(a.v)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border text-sm font-medium text-card-foreground hover:border-primary/30 hover:bg-primary/5 transition-all text-left">
+                      <a.icon className="h-4 w-4 text-muted-foreground" /> {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* PWA prompt */}
+            <PWAInstallPrompt />
+          </div>
+        )}
+
+        {/* ── Payment ────────────────────────────────────────────── */}
+        {view === 'payment' && (
+          <div className="max-w-md mx-auto animate-fade-up">
+            <div className="text-center mb-6">
+              <h2 className="font-display text-3xl text-gradient mb-1">Create Payment</h2>
+              <p className="text-muted-foreground text-sm">Enter the amount to generate a QR code</p>
+            </div>
+            <PaymentFlow
+              onPaymentComplete={id => { setSuccess(`Payment completed! ID: ${id}`); setTimeout(() => setSuccess(''), 5000); }}
+              onPaymentError={e => { setError(e); setTimeout(() => setError(''), 5000); }}
+            />
+          </div>
+        )}
+
+        {/* ── Transactions ───────────────────────────────────────── */}
+        {view === 'transactions' && (
+          <div className="max-w-4xl mx-auto animate-fade-up">
+            <div className="text-center mb-6">
+              <h2 className="font-display text-3xl text-gradient mb-1">Transactions</h2>
+              <p className="text-muted-foreground text-sm">Your recent payment history</p>
+            </div>
+            <TransactionHistory />
+          </div>
+        )}
+
+        {/* ── Settings ───────────────────────────────────────────── */}
+        {view === 'settings' && <div className="animate-fade-up"><Settings /></div>}
       </main>
     </div>
   );

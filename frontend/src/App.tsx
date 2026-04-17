@@ -14,10 +14,10 @@ const AppRoutes: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="card max-w-md w-full mx-4 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="glass rounded-2xl p-8 max-w-md w-full mx-4 text-center">
+          <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading…</p>
         </div>
       </div>
     );
@@ -53,13 +53,17 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+import { ThemeProvider } from './hooks/useTheme';
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

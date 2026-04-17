@@ -1,122 +1,41 @@
 import React, { useState } from 'react';
 
-export const ApiDocumentation: React.FC = () => {
-  const [selectedExample, setSelectedExample] = useState<'curl' | 'javascript' | 'python'>('curl');
-
-  const examples = {
-    curl: `curl -X POST https://api.sb0pay.com/api/v1/payments \\
-  -H "Authorization: Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+const examples: Record<string, string> = {
+  curl: `curl -X POST https://api.sb0pay.com/api/v1/payments \\
+  -H "Authorization: Bearer sb0_live_•••" \\
   -H "Content-Type: application/json" \\
-  -d '{
-    "amount": 100.50,
-    "currency": "ILS",
-    "description": "Order #12345",
-    "customerEmail": "customer@example.com",
-    "webhookUrl": "https://yoursite.com/webhook"
-  }'`,
-    javascript: `const response = await fetch('https://api.sb0pay.com/api/v1/payments', {
+  -d '{"amount":100.50,"currency":"ILS","description":"Order #12345"}'`,
+  javascript: `const res = await fetch('https://api.sb0pay.com/api/v1/payments', {
   method: 'POST',
-  headers: {
-    'Authorization': 'Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    amount: 100.50,
-    currency: 'ILS',
-    description: 'Order #12345',
-    customerEmail: 'customer@example.com',
-    webhookUrl: 'https://yoursite.com/webhook'
-  })
+  headers: { 'Authorization': 'Bearer sb0_live_•••', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ amount: 100.50, currency: 'ILS', description: 'Order #12345' })
 });
+const payment = await res.json();`,
+  python: `import requests
+r = requests.post('https://api.sb0pay.com/api/v1/payments',
+  headers={'Authorization': 'Bearer sb0_live_•••', 'Content-Type': 'application/json'},
+  json={'amount': 100.50, 'currency': 'ILS', 'description': 'Order #12345'})
+payment = r.json()`,
+};
 
-const payment = await response.json();
-console.log('Payment created:', payment);`,
-    python: `import requests
-
-response = requests.post('https://api.sb0pay.com/api/v1/payments', 
-  headers={
-    'Authorization': 'Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    'Content-Type': 'application/json'
-  },
-  json={
-    'amount': 100.50,
-    'currency': 'ILS',
-    'description': 'Order #12345',
-    'customerEmail': 'customer@example.com',
-    'webhookUrl': 'https://yoursite.com/webhook'
-  }
-)
-
-payment = response.json()
-print('Payment created:', payment)`
-  };
-
+export const ApiDocumentation: React.FC = () => {
+  const [lang, setLang] = useState<string>('curl');
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
-      <h4 className="text-lg font-medium text-blue-900 mb-4">🚀 Quick Start Guide</h4>
-      
-      <div className="space-y-4">
+    <div className="glass rounded-2xl p-6 border border-primary/20">
+      <h4 className="text-lg font-semibold text-foreground mb-4">🚀 Quick Start</h4>
+      <div className="space-y-4 text-sm">
+        <div><h5 className="font-medium text-foreground mb-1">1. Create an API Key</h5><p className="text-muted-foreground">Click "Create API Key" above and select permissions.</p></div>
         <div>
-          <h5 className="font-medium text-blue-800 mb-2">1. Create an API Key</h5>
-          <p className="text-blue-700 text-sm">
-            Click "Create API Key" above and select the permissions you need. Save the generated key securely.
-          </p>
-        </div>
-
-        <div>
-          <h5 className="font-medium text-blue-800 mb-2">2. Make Your First API Call</h5>
-          <p className="text-blue-700 text-sm mb-3">
-            Use your API key to create a payment. Here's an example:
-          </p>
-          
-          {/* Language Selector */}
-          <div className="flex space-x-2 mb-3">
-            {Object.keys(examples).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setSelectedExample(lang as keyof typeof examples)}
-                className={`px-3 py-1 text-sm rounded ${
-                  selectedExample === lang
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50'
-                }`}
-              >
-                {lang === 'curl' ? 'cURL' : lang === 'javascript' ? 'JavaScript' : 'Python'}
-              </button>
-            ))}
-          </div>
-
-          {/* Code Example */}
-          <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-            <pre className="text-green-400 text-sm">
-              <code>{examples[selectedExample]}</code>
-            </pre>
+          <h5 className="font-medium text-foreground mb-2">2. Make Your First Call</h5>
+          <div className="flex gap-1 mb-3">{Object.keys(examples).map(l => <button key={l} onClick={() => setLang(l)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${lang === l ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{l === 'curl' ? 'cURL' : l === 'javascript' ? 'JS' : 'Python'}</button>)}</div>
+          <div className="rounded-xl overflow-hidden glass">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/40"><div className="flex gap-1.5"><div className="h-2.5 w-2.5 rounded-full bg-destructive/60" /><div className="h-2.5 w-2.5 rounded-full bg-primary/60" /><div className="h-2.5 w-2.5 rounded-full bg-primary" /></div></div>
+            <pre className="p-4 text-xs font-mono text-foreground/90 overflow-x-auto"><code>{examples[lang]}</code></pre>
           </div>
         </div>
-
-        <div>
-          <h5 className="font-medium text-blue-800 mb-2">3. Handle the Response</h5>
-          <p className="text-blue-700 text-sm">
-            The API will return a payment object with a <code className="bg-blue-100 px-1 rounded">paymentUrl</code> 
-            that you can redirect your customer to, or display the QR code for mobile payments.
-          </p>
-        </div>
-
-        <div className="pt-4 border-t border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h5 className="font-medium text-blue-800">Need More Help?</h5>
-              <p className="text-blue-700 text-sm">Check out our comprehensive API documentation</p>
-            </div>
-            <a
-              href="/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              View Full Docs
-            </a>
-          </div>
+        <div className="pt-4 border-t border-border flex items-center justify-between">
+          <div><h5 className="font-medium text-foreground">Need more?</h5><p className="text-muted-foreground text-xs">Full API documentation available.</p></div>
+          <a href="/docs" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">View Docs</a>
         </div>
       </div>
     </div>
