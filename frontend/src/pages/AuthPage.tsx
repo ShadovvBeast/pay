@@ -201,7 +201,7 @@ export const AuthPage: React.FC = () => {
                   <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
                     <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-border" /> Remember me
                   </label>
-                  <button type="button" className="text-primary hover:underline">Forgot password?</button>
+                  <Link to="/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
                 </div>
               </>
             )}

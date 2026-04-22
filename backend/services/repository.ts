@@ -143,6 +143,19 @@ export class UserRepository {
   }
 
   /**
+   * Update user password hash
+   */
+  public async updatePassword(userId: string, passwordHash: string): Promise<boolean> {
+    const query = `
+      UPDATE users
+      SET password_hash = $2, updated_at = NOW()
+      WHERE id = $1
+    `;
+    const result = await db.query(query, [userId, passwordHash]);
+    return (result.rowCount || 0) > 0;
+  }
+
+  /**
    * Delete user by ID
    */
   public async delete(id: string): Promise<boolean> {

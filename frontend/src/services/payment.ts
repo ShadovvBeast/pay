@@ -50,13 +50,19 @@ export interface TransactionHistoryResponse {
 }
 
 class PaymentService {
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('accessToken');
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+  }
+
   async createPayment(data: CreatePaymentRequest): Promise<CreatePaymentResponse> {
     const response = await fetch(`${API_BASE_URL}/payments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies for auth
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify(data),
     });
 
@@ -69,7 +75,8 @@ class PaymentService {
 
   async getPaymentStatus(transactionId: string): Promise<PaymentStatusResponse> {
     const response = await fetch(`${API_BASE_URL}/payments/${transactionId}/status`, {
-      credentials: 'include', // Include cookies for auth
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -86,7 +93,8 @@ class PaymentService {
     });
 
     const response = await fetch(`${API_BASE_URL}/payments/history?${params}`, {
-      credentials: 'include', // Include cookies for auth
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -109,7 +117,8 @@ class PaymentService {
     allPayDetails: any;
   }> {
     const response = await fetch(`${API_BASE_URL}/payments/${transactionId}/details`, {
-      credentials: 'include', // Include cookies for auth
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -122,10 +131,8 @@ class PaymentService {
   async refundPayment(transactionId: string, amount?: number): Promise<PaymentStatusResponse> {
     const response = await fetch(`${API_BASE_URL}/payments/${transactionId}/refund`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies for auth
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ amount }),
     });
 
@@ -139,7 +146,8 @@ class PaymentService {
   async cancelPayment(transactionId: string): Promise<PaymentStatusResponse> {
     const response = await fetch(`${API_BASE_URL}/payments/${transactionId}/cancel`, {
       method: 'POST',
-      credentials: 'include', // Include cookies for auth
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {

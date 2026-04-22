@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { authService } from '../services/auth.js';
 import { userRepository } from '../services/repository.js';
+import { db } from '../services/database.js';
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import { validateUserData, sanitizeUserData } from '../models/user.js';
 import { requireAuth, logout } from '../middleware/auth.js';
@@ -509,6 +510,111 @@ export const authController = new Elysia({ prefix: '/auth' })
     return {
       message: 'Logged out successfully'
     };
+  })
+
+  // Request password reset — generates a 6-digit token, returns it so the frontend can email it via EmailJS
+  .post('/forgot-password', async ({ body, set }) => {
+    try {
+      const { email } = body as { email: string };
+
+      // Always return success to avoid email enumeration
+      const user = await userRepository.findByEmail(email.trim().toLowerCase());
+      if (!user) {
+        return { message: 'If an account with that email exists, a reset code has been generated.' };
+      }
+
+      // Invalidate any existing tokens for this user
+      await db.query(
+        'UPDATE password_reset_tokens SET used = TRUE WHERE user_id = $1 AND used = FALSE',
+        [user.id]
+      );
+
+      // Generate a 6-digit numeric token
+      const token = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      await db.query(
+        'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+        [user.id, token, expiresAt]
+      );
+
+      // Return the token so the frontend can send it via EmailJS
+      return {
+        message: 'If an account with that email exists, a reset code has been generated.',
+        resetToken: token,
+        email: user.email,
+        ownerName: user.ownerName,
+      };
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      set.status = 500;
+      return {
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to process request' },
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID(),
+      };
+    }
+  }, {
+    body: t.Object({
+      email: t.String({ format: 'email' }),
+    }),
+  })
+
+  // Reset password using the 6-digit token
+  .post('/reset-password', async ({ body, set }) => {
+    try {
+      const { email, token, newPassword } = body as { email: string; token: string; newPassword: string };
+
+      const user = await userRepository.findByEmail(email.trim().toLowerCase());
+      if (!user) {
+        set.status = 400;
+        return {
+          error: { code: 'INVALID_TOKEN', message: 'Invalid or expired reset code' },
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+        };
+      }
+
+      // Look up valid token
+      const row = await db.queryOne<{ id: string }>(
+        `SELECT id FROM password_reset_tokens
+         WHERE user_id = $1 AND token = $2 AND used = FALSE AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1`,
+        [user.id, token]
+      );
+
+      if (!row) {
+        set.status = 400;
+        return {
+          error: { code: 'INVALID_TOKEN', message: 'Invalid or expired reset code' },
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+        };
+      }
+
+      // Mark token as used
+      await db.query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [row.id]);
+
+      // Hash and update password
+      const hashedPassword = await hashPassword(newPassword);
+      await userRepository.updatePassword(user.id, hashedPassword);
+
+      return { message: 'Password reset successfully. You can now sign in.' };
+    } catch (error) {
+      console.error('Reset password error:', error);
+      set.status = 500;
+      return {
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to reset password' },
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID(),
+      };
+    }
+  }, {
+    body: t.Object({
+      email: t.String({ format: 'email' }),
+      token: t.String({ minLength: 6, maxLength: 6 }),
+      newPassword: t.String({ minLength: 8 }),
+    }),
   })
 
   .get('/validate', async ({ headers, cookie, set }) => {

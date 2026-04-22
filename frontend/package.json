@@ -16,6 +16,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "i18next": "^25.4.2",
     "i18next-http-backend": "^3.0.2",
     "lucide-react": "^1.8.0",

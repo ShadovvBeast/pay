@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AuthPage } from './pages/AuthPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { Dashboard } from './pages/Dashboard';
 import { PaymentSuccess } from './pages/PaymentSuccess';
 import { PaymentFailure } from './pages/PaymentFailure';
@@ -32,6 +33,10 @@ const AppRoutes: React.FC = () => {
       <Route 
         path="/auth" 
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />} 
+      />
+      <Route 
+        path="/forgot-password" 
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPasswordPage />} 
       />
       <Route 
         path="/dashboard" 
