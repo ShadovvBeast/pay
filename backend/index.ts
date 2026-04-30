@@ -9,6 +9,7 @@ import { paymentController } from './controllers/payment';
 import { apiKeyController } from './controllers/apiKeys';
 import { publicApiController } from './controllers/publicApi';
 import { docsController } from './controllers/docs';
+import { providerRegistry } from './services/providerRegistry';
 
 // Initialize database before starting server
 async function startServer() {
@@ -131,6 +132,12 @@ async function startServer() {
             idleConnections: dbStatus.idleCount,
             waitingConnections: dbStatus.waitingCount
           }
+        };
+      })
+      .get('/providers', () => {
+        return {
+          providers: providerRegistry.getAvailableProviders(),
+          countries: providerRegistry.getSupportedCountries(),
         };
       })
       .use(authController)
