@@ -2,468 +2,968 @@ import { Elysia } from 'elysia';
 
 /**
  * API Documentation Controller
- * Provides basic API documentation and examples
+ * Serves Swagger UI and OpenAPI 3.0 specification for all SB0 Pay endpoints
  */
-export const docsController = new Elysia({ prefix: '/docs' })
-  
-  // API Documentation
-  .get('/', () => {
-    return {
-      title: 'SB0 Pay API Documentation',
-      version: '1.2.0',
-      description: 'Comprehensive payment processing API with line items, installments, language/currency overrides, and advanced AllPay features',
-      baseUrl: '/api/v1',
-      importantNotes: {
-        amountFormat: 'All amounts are in decimal format (e.g., 342.60 for 342.60 ILS), NOT in minor units',
-        lineItems: 'When using lineItems, the sum of (price × quantity) for all items must equal the total amount (±0.01 tolerance)',
-        validation: 'URLs and emails are validated for format but allow flexibility for special characters'
-      },
-      authentication: {
-        type: 'Bearer Token',
-        description: 'Include your API key in the Authorization header',
-        example: 'Authorization: Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-      },
-      endpoints: {
-        payments: {
-          'POST /payments': {
-            description: 'Create a new payment',
-            permissions: ['payments:create'],
-            body: {
-              amount: 'number (required) - Amount in decimal format (e.g., 100.50 for 100.50 ILS)',
-              currency: 'string (optional) - 3-letter currency code (defaults to merchant currency). Supported: ILS, USD, EUR',
-              language: 'string (optional) - Payment page language (defaults to merchant language). Supported: he, en, ar, ru, auto',
-              description: 'string (optional) - Payment description',
-              lineItems: 'array (optional) - Array of line items for itemized payments. Sum of (price × quantity) must equal amount.',
-              customerEmail: 'string (optional) - Customer email address',
-              customerName: 'string (optional) - Customer name',
-              customerPhone: 'string (optional) - Customer phone number',
-              customerIdNumber: 'string (optional) - Customer ID number (Israeli tehudat zehut)',
-              maxInstallments: 'number (optional) - Maximum installments (1-12)',
-              fixedInstallments: 'boolean (optional) - Require exact installment count',
-              expiresAt: 'string (optional) - ISO 8601 expiration timestamp',
-              preauthorize: 'boolean (optional) - Authorize without capturing',
-              showApplePay: 'boolean (optional) - Show Apple Pay option',
-              showBit: 'boolean (optional) - Show Bit payment option',
-              customField1: 'string (optional) - Custom field for merchant use',
-              customField2: 'string (optional) - Custom field for merchant use',
-              successUrl: 'string (optional) - URL to redirect after successful payment',
-              cancelUrl: 'string (optional) - URL to redirect after cancelled payment',
-              webhookUrl: 'string (optional) - URL to receive payment notifications',
-              metadata: 'object (optional) - Custom metadata object'
-            },
-            response: {
-              id: 'string - Payment ID',
-              amount: 'number - Payment amount',
-              currency: 'string - Currency code',
-              status: 'string - Payment status',
-              paymentUrl: 'string - URL for customer to complete payment',
-              qrCodeDataUrl: 'string - QR code data URL for mobile payments',
-              createdAt: 'string - ISO timestamp'
-            }
-          },
-          'GET /payments/:id': {
-            description: 'Get payment details',
-            permissions: ['payments:read'],
-            response: {
-              id: 'string - Payment ID',
-              amount: 'number - Payment amount',
-              currency: 'string - Currency code',
-              status: 'string - Payment status',
-              description: 'string - Payment description',
-              metadata: 'object - Custom metadata',
-              createdAt: 'string - ISO timestamp',
-              updatedAt: 'string - ISO timestamp'
-            }
-          },
-          'GET /payments': {
-            description: 'List payments with pagination',
-            permissions: ['payments:read'],
-            query: {
-              limit: 'number (optional) - Number of results (max 100, default 50)',
-              offset: 'number (optional) - Offset for pagination (default 0)'
-            },
-            response: {
-              data: 'array - Array of payment objects',
-              pagination: {
-                limit: 'number - Results limit',
-                offset: 'number - Results offset',
-                total: 'number - Total count',
-                hasMore: 'boolean - Whether more results exist'
-              }
-            }
-          },
-          'POST /payments/:id/refund': {
-            description: 'Refund a completed payment',
-            permissions: ['payments:update'],
-            body: {
-              amount: 'number (optional) - Partial refund amount (defaults to full amount)'
-            },
-            response: 'Payment object with updated status'
-          },
-          'POST /payments/:id/cancel': {
-            description: 'Cancel a pending payment',
-            permissions: ['payments:update'],
-            response: 'Payment object with updated status'
-          }
-        }
-      },
-      errors: {
-        authentication_error: {
-          codes: ['MISSING_API_KEY', 'INVALID_API_KEY', 'INSUFFICIENT_PERMISSIONS'],
-          description: 'Authentication or authorization failed'
-        },
-        invalid_request: {
-          codes: ['INVALID_AMOUNT', 'PAYMENT_NOT_FOUND', 'INVALID_REFUND'],
-          description: 'Request validation failed'
-        },
-        api_error: {
-          codes: ['INTERNAL_ERROR', 'PAYMENT_PROVIDER_ERROR'],
-          description: 'Server or external service error'
-        },
-        rate_limit_error: {
-          codes: ['RATE_LIMIT_EXCEEDED'],
-          description: 'API rate limit exceeded'
-        }
-      },
-      examples: {
-        createPayment: {
-          request: {
-            method: 'POST',
-            url: '/api/v1/payments',
-            headers: {
-              'Authorization': 'Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-              'Content-Type': 'application/json'
-            },
-            body: {
-              amount: 250.00,
-              currency: 'ILS',
-              description: 'Order #12345',
-              lineItems: [
-                {
-                  name: 'Product A',
-                  price: 150.00,
-                  quantity: 1,
-                  includesVat: true
-                },
-                {
-                  name: 'Product B',
-                  price: 100.00,
-                  quantity: 1,
-                  includesVat: true
-                }
-              ],
-              customerEmail: 'customer@example.com',
-              customerName: 'John Doe',
-              maxInstallments: 3,
-              successUrl: 'https://yoursite.com/success',
-              cancelUrl: 'https://yoursite.com/cancel',
-              webhookUrl: 'https://yoursite.com/webhook',
-              metadata: {
-                orderId: '12345',
-                customField: 'value'
-              }
-            }
-          },
-          response: {
-            id: 'txn_1234567890abcdef',
-            amount: 250.00,
-            currency: 'ILS',
-            status: 'pending',
-            paymentUrl: 'https://pay.allpay.co.il/...',
-            qrCodeDataUrl: 'data:image/png;base64,...',
-            description: 'Order #12345',
-            lineItems: [
-              {
-                name: 'Product A',
-                price: 150.00,
-                quantity: 1,
-                includesVat: true
-              },
-              {
-                name: 'Product B',
-                price: 100.00,
-                quantity: 1,
-                includesVat: true
-              }
-            ],
-            metadata: {
-              orderId: '12345',
-              customField: 'value'
-            },
-            createdAt: '2025-11-06T10:30:00Z'
-          }
-        },
-        getPayment: {
-          request: {
-            method: 'GET',
-            url: '/api/v1/payments/txn_1234567890abcdef',
-            headers: {
-              'Authorization': 'Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-            }
-          },
-          response: {
-            id: 'txn_1234567890abcdef',
-            amount: 100.50,
-            currency: 'ILS',
-            status: 'completed',
-            description: 'Order #12345',
-            metadata: {
-              orderId: '12345',
-              customField: 'value'
-            },
-            createdAt: '2025-11-06T10:30:00Z',
-            updatedAt: '2025-11-06T10:35:00Z'
-          }
-        }
-      },
-      sdks: {
-        curl: {
-          createPayment: `curl -X POST https://api.sb0pay.com/api/v1/payments \\
-  -H "Authorization: Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "amount": 250.00,
-    "currency": "ILS",
-    "description": "Order #12345",
-    "lineItems": [
-      {
-        "name": "Product A",
-        "price": 150.00,
-        "quantity": 1,
-        "includesVat": true
-      },
-      {
-        "name": "Product B",
-        "price": 100.00,
-        "quantity": 1,
-        "includesVat": true
-      }
-    ],
-    "customerEmail": "customer@example.com",
-    "maxInstallments": 3
-  }'`
-        },
-        javascript: {
-          createPayment: `const response = await fetch('https://api.sb0pay.com/api/v1/payments', {
-  method: 'POST',
-  headers: {
-    'Authorization': 'Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    'Content-Type': 'application/json'
+
+const OPENAPI_SPEC = {
+  openapi: '3.0.3',
+  info: {
+    title: 'SB0 Pay API',
+    version: '1.2.0',
+    description: `SB0 Pay is a mobile-first Point of Sale (PoS) system that integrates with the AllPay payment gateway.
+
+## Authentication
+
+There are two authentication methods:
+
+- **JWT (Cookie/Bearer)** — Used by the merchant dashboard UI. Obtained via \`/auth/login\`.
+- **API Key (Bearer)** — Used by third-party integrations via \`/api/v1/*\`. Keys are prefixed with \`sb0_live_\` or \`sb0_test_\`.
+
+## Important Notes
+
+- All amounts are in **decimal format** (e.g. \`342.60\` for 342.60 ILS), NOT in minor units.
+- When using \`lineItems\`, the sum of (price × quantity) for all items must equal the total \`amount\` (±0.01 tolerance).
+- Consistent error format: \`{ error: { code, message, type?, details? }, timestamp, requestId }\``,
+    contact: {
+      name: 'SB0 Pay Support',
+      url: 'https://sb0pay.web.app',
+    },
   },
-  body: JSON.stringify({
-    amount: 100.50,
-    currency: 'ILS',
-    description: 'Order #12345',
-    customerEmail: 'customer@example.com'
-  })
-});
-
-const payment = await response.json();`
-        },
-        python: {
-          createPayment: `import requests
-
-response = requests.post('https://api.sb0pay.com/api/v1/payments', 
-  headers={
-    'Authorization': 'Bearer sb0_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    'Content-Type': 'application/json'
-  },
-  json={
-    'amount': 100.50,
-    'currency': 'ILS',
-    'description': 'Order #12345',
-    'customerEmail': 'customer@example.com'
-  }
-)
-
-payment = response.json()`
-        }
-      }
-    };
-  })
-
-  // OpenAPI/Swagger specification
-  .get('/openapi.json', () => {
-    return {
-      openapi: '3.0.0',
-      info: {
-        title: 'SB0 Pay API',
-        version: '1.1.0',
-        description: 'Comprehensive payment processing API with line items, installments, and advanced AllPay features'
+  servers: [
+    { url: 'http://localhost:3001', description: 'Local development' },
+    { url: 'https://sb0pay-678576192331.us-central1.run.app', description: 'Production' },
+  ],
+  tags: [
+    { name: 'Health', description: 'Server health and status' },
+    { name: 'Auth', description: 'Merchant authentication (JWT)' },
+    { name: 'Payments (Merchant)', description: 'Payment operations via merchant dashboard (JWT auth)' },
+    { name: 'API Keys', description: 'API key management for third-party integrations (JWT auth)' },
+    { name: 'Public API', description: 'Third-party payment integration endpoints (API key auth)' },
+    { name: 'Webhooks', description: 'Payment provider callback endpoints (no auth)' },
+    { name: 'Providers', description: 'Payment provider information' },
+  ],
+  components: {
+    securitySchemes: {
+      jwtAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'JWT access token obtained from /auth/login',
       },
-      servers: [
-        {
-          url: '/api/v1',
-          description: 'Production API'
-        }
-      ],
-      security: [
-        {
-          bearerAuth: []
-        }
-      ],
-      components: {
-        securitySchemes: {
-          bearerAuth: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'API Key'
-          }
-        },
-        schemas: {
-          Payment: {
+      apiKeyAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'API Key',
+        description: 'API key with prefix sb0_live_ or sb0_test_',
+      },
+    },
+    schemas: {
+      Error: {
+        type: 'object',
+        properties: {
+          error: {
             type: 'object',
             properties: {
-              id: { type: 'string' },
-              amount: { type: 'number' },
-              currency: { type: 'string' },
-              status: { type: 'string' },
-              paymentUrl: { type: 'string' },
-              qrCodeDataUrl: { type: 'string' },
-              description: { type: 'string' },
-              metadata: { type: 'object' },
-              createdAt: { type: 'string', format: 'date-time' }
-            }
+              code: { type: 'string', example: 'VALIDATION_ERROR' },
+              message: { type: 'string', example: 'Invalid request data' },
+              type: { type: 'string', example: 'invalid_request' },
+              details: { type: 'object' },
+            },
+            required: ['code', 'message'],
           },
-          Error: {
+          timestamp: { type: 'string', format: 'date-time' },
+          requestId: { type: 'string', format: 'uuid' },
+        },
+      },
+      MerchantConfig: {
+        type: 'object',
+        properties: {
+          companyNumber: { type: 'string', example: '123456789' },
+          currency: { type: 'string', pattern: '^[A-Z]{3}$', example: 'ILS' },
+          language: { type: 'string', pattern: '^[a-z]{2}$', example: 'en' },
+        },
+        required: ['companyNumber', 'currency', 'language'],
+      },
+      User: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          email: { type: 'string', format: 'email' },
+          shopName: { type: 'string' },
+          ownerName: { type: 'string' },
+          merchantConfig: { $ref: '#/components/schemas/MerchantConfig' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      AuthResponse: {
+        type: 'object',
+        properties: {
+          user: { $ref: '#/components/schemas/User' },
+          tokens: {
             type: 'object',
             properties: {
-              error: {
-                type: 'object',
-                properties: {
-                  code: { type: 'string' },
-                  message: { type: 'string' },
-                  type: { type: 'string' }
-                }
-              },
-              timestamp: { type: 'string', format: 'date-time' },
-              requestId: { type: 'string' }
-            }
-          }
-        }
-      },
-      paths: {
-        '/payments': {
-          post: {
-            summary: 'Create payment',
-            security: [{ bearerAuth: [] }],
-            requestBody: {
-              required: true,
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    required: ['amount'],
-                    properties: {
-                      amount: { type: 'number', minimum: 0.01 },
-                      currency: { type: 'string', pattern: '^[A-Z]{3}$', description: 'Currency code (ILS, USD, EUR)' },
-                      language: { type: 'string', pattern: '^(he|en|ar|ru|auto)$', description: 'Payment page language' },
-                      description: { type: 'string' },
-                      lineItems: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          required: ['name', 'price', 'quantity'],
-                          properties: {
-                            name: { type: 'string' },
-                            price: { type: 'number', minimum: 0 },
-                            quantity: { type: 'number', minimum: 1 },
-                            includesVat: { type: 'boolean' }
-                          }
-                        }
-                      },
-                      customerEmail: { type: 'string', format: 'email' },
-                      customerName: { type: 'string' },
-                      customerPhone: { type: 'string' },
-                      customerIdNumber: { type: 'string' },
-                      maxInstallments: { type: 'number', minimum: 1, maximum: 12 },
-                      fixedInstallments: { type: 'boolean' },
-                      expiresAt: { type: 'string', format: 'date-time' },
-                      preauthorize: { type: 'boolean' },
-                      showApplePay: { type: 'boolean' },
-                      showBit: { type: 'boolean' },
-                      customField1: { type: 'string' },
-                      customField2: { type: 'string' },
-                      successUrl: { type: 'string', format: 'uri' },
-                      cancelUrl: { type: 'string', format: 'uri' },
-                      webhookUrl: { type: 'string', format: 'uri' },
-                      metadata: { type: 'object' }
-                    }
-                  }
-                }
-              }
+              accessToken: { type: 'string' },
+              refreshToken: { type: 'string' },
             },
-            responses: {
-              '201': {
-                description: 'Payment created successfully',
-                content: {
-                  'application/json': {
-                    schema: { $ref: '#/components/schemas/Payment' }
-                  }
-                }
-              },
-              '400': {
-                description: 'Invalid request',
-                content: {
-                  'application/json': {
-                    schema: { $ref: '#/components/schemas/Error' }
-                  }
-                }
-              },
-              '401': {
-                description: 'Authentication failed',
-                content: {
-                  'application/json': {
-                    schema: { $ref: '#/components/schemas/Error' }
-                  }
-                }
-              }
-            }
           },
-          get: {
-            summary: 'List payments',
-            security: [{ bearerAuth: [] }],
-            parameters: [
-              {
-                name: 'limit',
-                in: 'query',
-                schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 }
-              },
-              {
-                name: 'offset',
-                in: 'query',
-                schema: { type: 'integer', minimum: 0, default: 0 }
-              }
-            ],
-            responses: {
-              '200': {
-                description: 'Payments retrieved successfully',
-                content: {
-                  'application/json': {
-                    schema: {
+          message: { type: 'string' },
+        },
+      },
+      Transaction: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          amount: { type: 'number', example: 100.5 },
+          currency: { type: 'string', example: 'ILS' },
+          status: {
+            type: 'string',
+            enum: ['pending', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded'],
+          },
+          paymentUrl: { type: 'string', format: 'uri' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      PaymentResponse: {
+        type: 'object',
+        properties: {
+          transaction: { $ref: '#/components/schemas/Transaction' },
+          paymentUrl: { type: 'string', format: 'uri' },
+          qrCodeDataUrl: { type: 'string', description: 'Base64 QR code data URL' },
+        },
+      },
+      LineItem: {
+        type: 'object',
+        required: ['name', 'price', 'quantity'],
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 255 },
+          price: { type: 'number', minimum: 0 },
+          quantity: { type: 'number', minimum: 1 },
+          includesVat: { type: 'boolean' },
+        },
+      },
+      PublicPaymentResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          amount: { type: 'number' },
+          currency: { type: 'string' },
+          status: { type: 'string' },
+          paymentUrl: { type: 'string', format: 'uri' },
+          qrCodeDataUrl: { type: 'string' },
+          paymentMethod: { type: 'string' },
+          paymentProvider: { type: 'string' },
+          description: { type: 'string' },
+          lineItems: { type: 'array', items: { $ref: '#/components/schemas/LineItem' } },
+          expiresAt: { type: 'string', format: 'date-time' },
+          metadata: { type: 'object' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      PublicTransactionResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          amount: { type: 'number' },
+          currency: { type: 'string' },
+          status: { type: 'string' },
+          description: { type: 'string' },
+          metadata: { type: 'object' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ApiKeyPermission: {
+        type: 'object',
+        required: ['resource', 'actions'],
+        properties: {
+          resource: { type: 'string', enum: ['payments', 'transactions', 'webhooks', 'profile'] },
+          actions: {
+            type: 'array',
+            items: { type: 'string', enum: ['create', 'read', 'update', 'delete'] },
+          },
+        },
+      },
+      ApiKeyResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          key: { type: 'string', description: 'Full API key (only returned on creation)' },
+          prefix: { type: 'string', example: 'sb0_live_0b6b...' },
+          permissions: { type: 'array', items: { $ref: '#/components/schemas/ApiKeyPermission' } },
+          isActive: { type: 'boolean' },
+          lastUsedAt: { type: 'string', format: 'date-time', nullable: true },
+          expiresAt: { type: 'string', format: 'date-time', nullable: true },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  },
+  paths: {
+    // ── Health & Info ──────────────────────────────────────────────────
+    '/': {
+      get: {
+        tags: ['Health'],
+        summary: 'Server status',
+        description: 'Returns a simple string indicating the server is running.',
+        responses: { '200': { description: 'Server is running', content: { 'text/plain': { schema: { type: 'string', example: 'SB0 Pay API Server' } } } } },
+      },
+    },
+    '/health': {
+      get: {
+        tags: ['Health'],
+        summary: 'Health check',
+        description: 'Returns server health including database connection status and pool metrics.',
+        responses: {
+          '200': {
+            description: 'Health status',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'ok' },
+                    timestamp: { type: 'string', format: 'date-time' },
+                    environment: { type: 'string', example: 'development' },
+                    database: {
                       type: 'object',
                       properties: {
-                        data: {
-                          type: 'array',
-                          items: { $ref: '#/components/schemas/Payment' }
-                        },
-                        pagination: {
-                          type: 'object',
-                          properties: {
-                            limit: { type: 'integer' },
-                            offset: { type: 'integer' },
-                            total: { type: 'integer' },
-                            hasMore: { type: 'boolean' }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    };
-  });
+                        connected: { type: 'boolean' },
+                        totalConnections: { type: 'integer' },
+                        idleConnections: { type: 'integer' },
+                        waitingConnections: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/providers': {
+      get: {
+        tags: ['Providers'],
+        summary: 'List payment providers',
+        description: 'Returns available payment providers and supported countries.',
+        responses: {
+          '200': {
+            description: 'Provider list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    providers: { type: 'array', items: { type: 'object' } },
+                    countries: { type: 'array', items: { type: 'string' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // ── Auth ───────────────────────────────────────────────────────────
+    '/auth/register': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Register new merchant',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email', 'password', 'shopName', 'ownerName', 'merchantConfig'],
+                properties: {
+                  email: { type: 'string', format: 'email' },
+                  password: { type: 'string', minLength: 8 },
+                  shopName: { type: 'string', minLength: 2, maxLength: 100 },
+                  ownerName: { type: 'string', minLength: 2, maxLength: 100 },
+                  merchantConfig: { $ref: '#/components/schemas/MerchantConfig' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': { description: 'Registration successful', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          '400': { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '409': { description: 'User already exists', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Login',
+        description: 'Authenticate with email and password. Returns JWT tokens in response body and sets HTTP-only cookies.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email', 'password'],
+                properties: {
+                  email: { type: 'string', format: 'email' },
+                  password: { type: 'string', minLength: 1 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Login successful', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          '401': { description: 'Invalid credentials', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/auth/me': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Get current user profile',
+        security: [{ jwtAuth: [] }],
+        responses: {
+          '200': { description: 'User profile', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/auth/refresh': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Refresh access token',
+        description: 'Uses the refresh token from HTTP-only cookie to issue a new access token.',
+        responses: {
+          '200': { description: 'Token refreshed', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } },
+          '401': { description: 'Invalid refresh token', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/auth/update': {
+      put: {
+        tags: ['Auth'],
+        summary: 'Update user profile',
+        security: [{ jwtAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  shopName: { type: 'string', minLength: 2, maxLength: 100 },
+                  ownerName: { type: 'string', minLength: 2, maxLength: 100 },
+                  email: { type: 'string', format: 'email' },
+                  merchantConfig: {
+                    type: 'object',
+                    properties: {
+                      companyNumber: { type: 'string' },
+                      currency: { type: 'string', pattern: '^[A-Z]{3}$' },
+                      language: { type: 'string', pattern: '^[a-z]{2}$' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Profile updated', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'User not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/auth/logout': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Logout',
+        description: 'Clears authentication cookies.',
+        responses: {
+          '200': { description: 'Logged out', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } },
+        },
+      },
+    },
+    '/auth/forgot-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Request password reset',
+        description: 'Generates a 6-digit reset code. Returns the code so the frontend can email it via EmailJS.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email'],
+                properties: { email: { type: 'string', format: 'email' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Reset code generated (if account exists)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    resetToken: { type: 'string', example: '618176', description: 'Only present if account exists' },
+                    email: { type: 'string' },
+                    ownerName: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/auth/reset-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Reset password with code',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email', 'token', 'newPassword'],
+                properties: {
+                  email: { type: 'string', format: 'email' },
+                  token: { type: 'string', minLength: 6, maxLength: 6, description: '6-digit reset code' },
+                  newPassword: { type: 'string', minLength: 8 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Password reset successful', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } },
+          '400': { description: 'Invalid or expired code', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/auth/validate': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Validate JWT token',
+        security: [{ jwtAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Token is valid',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    valid: { type: 'boolean' },
+                    user: {
+                      type: 'object',
+                      properties: { userId: { type: 'string' }, email: { type: 'string' } },
+                    },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Invalid token', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+
+    // ── Payments (Merchant Dashboard) ─────────────────────────────────
+    '/payments': {
+      post: {
+        tags: ['Payments (Merchant)'],
+        summary: 'Create payment',
+        description: 'Creates a payment via AllPay, returns a payment URL and QR code.',
+        security: [{ jwtAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['amount'],
+                properties: {
+                  amount: { type: 'number', minimum: 0.01, maximum: 999999.99, example: 100.5 },
+                  description: { type: 'string', maxLength: 255 },
+                  customerEmail: { type: 'string', format: 'email' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': { description: 'Payment created', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaymentResponse' } } } },
+          '400': { description: 'Invalid amount', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '502': { description: 'Payment provider unavailable', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/{id}/details': {
+      get: {
+        tags: ['Payments (Merchant)'],
+        summary: 'Get transaction details from AllPay',
+        security: [{ jwtAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Transaction details from AllPay' },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Transaction not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/{id}/status': {
+      get: {
+        tags: ['Payments (Merchant)'],
+        summary: 'Get payment status',
+        security: [{ jwtAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Payment status',
+            content: { 'application/json': { schema: { type: 'object', properties: { transaction: { $ref: '#/components/schemas/Transaction' } } } } },
+          },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Transaction not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/history': {
+      get: {
+        tags: ['Payments (Merchant)'],
+        summary: 'Get transaction history',
+        security: [{ jwtAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Transaction history',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    transactions: { type: 'array', items: { $ref: '#/components/schemas/Transaction' } },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        limit: { type: 'integer' },
+                        offset: { type: 'integer' },
+                        total: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/{id}/refund': {
+      post: {
+        tags: ['Payments (Merchant)'],
+        summary: 'Refund payment',
+        security: [{ jwtAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { amount: { type: 'number', minimum: 0.01, description: 'Partial refund amount (omit for full refund)' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Refund processed', content: { 'application/json': { schema: { type: 'object', properties: { transaction: { $ref: '#/components/schemas/Transaction' } } } } } },
+          '400': { description: 'Invalid refund', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Transaction not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/{id}/cancel': {
+      post: {
+        tags: ['Payments (Merchant)'],
+        summary: 'Cancel payment',
+        security: [{ jwtAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Payment cancelled', content: { 'application/json': { schema: { type: 'object', properties: { transaction: { $ref: '#/components/schemas/Transaction' } } } } } },
+          '400': { description: 'Cannot cancel (wrong status)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Transaction not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+
+    // ── Webhooks (no auth) ────────────────────────────────────────────
+    '/payments/webhook': {
+      post: {
+        tags: ['Webhooks'],
+        summary: 'AllPay webhook',
+        description: 'Receives payment status notifications from AllPay. No authentication required.',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: {
+          '200': { description: 'Webhook processed', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, transactionId: { type: 'string' }, message: { type: 'string' } } } } } },
+          '400': { description: 'Processing failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/webhook/mobile-money': {
+      post: {
+        tags: ['Webhooks'],
+        summary: 'Generic mobile money callback',
+        description: 'Auto-detects provider (MTN MoMo, Airtel Money, M-Pesa) from payload structure.',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: {
+          '200': { description: 'Callback processed' },
+          '400': { description: 'Unknown provider or invalid payload', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/payments/webhook/mtn-momo': {
+      post: {
+        tags: ['Webhooks'],
+        summary: 'MTN MoMo callback',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { '200': { description: 'Processed' }, '400': { description: 'Invalid callback' } },
+      },
+    },
+    '/payments/webhook/airtel-money': {
+      post: {
+        tags: ['Webhooks'],
+        summary: 'Airtel Money callback',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { '200': { description: 'Processed' }, '400': { description: 'Invalid callback' } },
+      },
+    },
+    '/payments/webhook/mpesa': {
+      post: {
+        tags: ['Webhooks'],
+        summary: 'M-Pesa callback',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { '200': { description: 'Processed' }, '400': { description: 'Invalid callback' } },
+      },
+    },
+
+    // ── API Keys ──────────────────────────────────────────────────────
+    '/api-keys': {
+      post: {
+        tags: ['API Keys'],
+        summary: 'Create API key',
+        security: [{ jwtAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'permissions'],
+                properties: {
+                  name: { type: 'string', minLength: 1, maxLength: 255 },
+                  permissions: { type: 'array', items: { $ref: '#/components/schemas/ApiKeyPermission' } },
+                  expiresAt: { type: 'string', format: 'date-time', description: 'Optional expiration date (must be in the future)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'API key created. The full key is only returned once.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiKeyResponse' } } },
+          },
+          '400': { description: 'Invalid permissions or date', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      get: {
+        tags: ['API Keys'],
+        summary: 'List API keys',
+        security: [{ jwtAuth: [] }],
+        responses: {
+          '200': {
+            description: 'List of API keys (without full key values)',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/ApiKeyResponse' } } } },
+          },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api-keys/{id}': {
+      put: {
+        tags: ['API Keys'],
+        summary: 'Update API key',
+        security: [{ jwtAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', minLength: 1, maxLength: 255 },
+                  permissions: { type: 'array', items: { $ref: '#/components/schemas/ApiKeyPermission' } },
+                  isActive: { type: 'boolean' },
+                  expiresAt: { type: 'string', format: 'date-time' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'API key updated', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiKeyResponse' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'API key not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      delete: {
+        tags: ['API Keys'],
+        summary: 'Delete API key',
+        security: [{ jwtAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          '200': { description: 'API key deleted', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'API key not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api-keys/{id}/usage': {
+      get: {
+        tags: ['API Keys'],
+        summary: 'Get API key usage statistics',
+        security: [{ jwtAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'days', in: 'query', schema: { type: 'integer', default: 30, description: 'Number of days to look back' } },
+        ],
+        responses: {
+          '200': { description: 'Usage statistics' },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'API key not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+
+    // ── Public API (API Key auth) ─────────────────────────────────────
+    '/api/v1/payments': {
+      post: {
+        tags: ['Public API'],
+        summary: 'Create payment',
+        description: 'Create a payment via the public API. Requires API key with `payments:create` permission.',
+        security: [{ apiKeyAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['amount'],
+                properties: {
+                  amount: { type: 'number', minimum: 0.01, maximum: 999999.99, description: 'Amount in decimal format (e.g. 100.50)' },
+                  currency: { type: 'string', pattern: '^[A-Z]{3}$', description: 'ILS, USD, EUR (defaults to merchant currency)' },
+                  language: { type: 'string', enum: ['he', 'en', 'ar', 'ru', 'auto'], description: 'Payment page language' },
+                  description: { type: 'string', maxLength: 255 },
+                  paymentMethod: { type: 'string', enum: ['card', 'mobile_money', 'auto'] },
+                  lineItems: { type: 'array', items: { $ref: '#/components/schemas/LineItem' }, description: 'Sum of (price × quantity) must equal amount' },
+                  customerEmail: { type: 'string', maxLength: 320 },
+                  customerName: { type: 'string', maxLength: 255 },
+                  customerPhone: { type: 'string', maxLength: 50 },
+                  customerIdNumber: { type: 'string', maxLength: 20, description: 'Israeli tehudat zehut' },
+                  maxInstallments: { type: 'integer', minimum: 1, maximum: 12 },
+                  fixedInstallments: { type: 'boolean' },
+                  expiresAt: { type: 'string', format: 'date-time' },
+                  preauthorize: { type: 'boolean', description: 'Authorize without capturing' },
+                  showApplePay: { type: 'boolean' },
+                  showBit: { type: 'boolean' },
+                  customField1: { type: 'string', maxLength: 255 },
+                  customField2: { type: 'string', maxLength: 255 },
+                  successUrl: { type: 'string', maxLength: 2048 },
+                  cancelUrl: { type: 'string', maxLength: 2048 },
+                  webhookUrl: { type: 'string', maxLength: 2048 },
+                  metadata: { type: 'object', additionalProperties: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': { description: 'Payment created', content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicPaymentResponse' } } } },
+          '400': { description: 'Invalid request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '502': { description: 'Payment provider unavailable', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      get: {
+        tags: ['Public API'],
+        summary: 'List payments',
+        description: 'List payments with pagination. Requires API key with `payments:read` permission.',
+        security: [{ apiKeyAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Payments list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: { type: 'array', items: { $ref: '#/components/schemas/PublicTransactionResponse' } },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        limit: { type: 'integer' },
+                        offset: { type: 'integer' },
+                        total: { type: 'integer' },
+                        hasMore: { type: 'boolean' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/v1/payments/{id}': {
+      get: {
+        tags: ['Public API'],
+        summary: 'Get payment details',
+        description: 'Requires API key with `payments:read` permission.',
+        security: [{ apiKeyAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Payment details', content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicTransactionResponse' } } } },
+          '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Payment not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/v1/payments/{id}/refund': {
+      post: {
+        tags: ['Public API'],
+        summary: 'Refund payment',
+        description: 'Requires API key with `payments:update` permission.',
+        security: [{ apiKeyAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { amount: { type: 'number', minimum: 0.01, description: 'Partial refund amount (omit for full refund)' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Refund processed', content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicTransactionResponse' } } } },
+          '400': { description: 'Invalid refund', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Payment not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/api/v1/payments/{id}/cancel': {
+      post: {
+        tags: ['Public API'],
+        summary: 'Cancel payment',
+        description: 'Requires API key with `payments:update` permission.',
+        security: [{ apiKeyAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Payment cancelled', content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicTransactionResponse' } } } },
+          '400': { description: 'Cannot cancel (wrong status)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Payment not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+  },
+};
+
+// ── Swagger UI HTML ─────────────────────────────────────────────────────
+function getSwaggerHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SB0 Pay API Documentation</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+    .swagger-ui .topbar { display: none; }
+    .swagger-ui .info { margin: 30px 0; }
+    .swagger-ui .info .title { font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({
+      url: '/v1/docs/openapi.json',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIBundle.SwaggerUIStandalonePreset
+      ],
+      layout: 'BaseLayout',
+      defaultModelsExpandDepth: 1,
+      defaultModelExpandDepth: 1,
+      docExpansion: 'list',
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
+      tryItOutEnabled: true,
+    });
+  </script>
+</body>
+</html>`;
+}
+
+// ── Controller ──────────────────────────────────────────────────────────
+export const docsController = new Elysia({ prefix: '/v1/docs' })
+  .get('/', ({ set }) => {
+    set.headers['content-type'] = 'text/html; charset=utf-8';
+    return getSwaggerHtml();
+  })
+  .get('/openapi.json', () => OPENAPI_SPEC);
