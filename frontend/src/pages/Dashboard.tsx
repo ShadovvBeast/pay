@@ -5,19 +5,22 @@ import { PaymentFlow } from '../components/PaymentFlow';
 import { PWAInstallPrompt } from '../components/PWAInstallPrompt';
 import { TransactionHistory } from '../components/TransactionHistory';
 import { Settings } from '../components/Settings';
+import { Wallet } from '../components/Wallet';
 import { paymentService } from '../services/payment';
+import { walletService } from '../services/walletService';
 import {
   LayoutDashboard, CreditCard, List, Settings as SettingsIcon,
-  LogOut, Store, Globe, Plus,
+  LogOut, Store, Globe, Plus, Wallet as WalletIcon,
   TrendingUp, ArrowUpRight, CheckCircle2,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 
-type View = 'overview' | 'payment' | 'transactions' | 'settings';
+type View = 'overview' | 'payment' | 'transactions' | 'wallet' | 'settings';
 
 const navItems: { view: View; icon: typeof LayoutDashboard; label: string }[] = [
   { view: 'overview', icon: LayoutDashboard, label: 'Overview' },
   { view: 'payment', icon: CreditCard, label: 'Payment' },
+  { view: 'wallet', icon: WalletIcon, label: 'Wallet' },
   { view: 'transactions', icon: List, label: 'History' },
   { view: 'settings', icon: SettingsIcon, label: 'Settings' },
 ];
@@ -34,6 +37,7 @@ export const Dashboard: React.FC = () => {
 
   // Stats
   const [stats, setStats] = useState({ revenue: 0, total: 0, completed: 0 });
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   useEffect(() => {
     paymentService.getTransactionHistory(100, 0)
       .then(r => {
@@ -45,6 +49,9 @@ export const Dashboard: React.FC = () => {
           .reduce((s: number, t: any) => s + (t.amount || 0), 0);
         setStats({ revenue: todayRevenue, total: txs.length, completed: completed.length });
       })
+      .catch(() => {});
+    walletService.getBalance()
+      .then(r => setWalletBalance(r.balance))
       .catch(() => {});
   }, [view]);
 
@@ -77,30 +84,71 @@ export const Dashboard: React.FC = () => {
 
       {/* ── Bottom mobile nav ──────────────────────────────────── */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-border md:hidden safe-area-inset">
-        <div className="flex">
-          {navItems.map(item => (
-            <button key={item.view} onClick={() => go(item.view)}
-              className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${view === item.view ? 'text-primary' : 'text-muted-foreground'}`}>
-              <item.icon className="h-5 w-5" />
-              {item.label}
-              {view === item.view && <div className="w-1 h-1 rounded-full bg-primary" />}
-            </button>
-          ))}
+        <div className="flex items-end">
+          {navItems.map(item => {
+            const isWallet = item.view === 'wallet';
+            const isActive = view === item.view;
+
+            if (isWallet) {
+              return (
+                <button key={item.view} onClick={() => go(item.view)}
+                  className="flex-1 flex flex-col items-center -mt-5 relative">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-glow scale-110'
+                      : 'bg-card text-muted-foreground border-2 border-border hover:border-primary/40'
+                  }`}>
+                    <item.icon className="h-6 w-6" />
+                  </div>
+                  <span className={`text-[10px] mt-1 pb-2 font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            }
+
+            return (
+              <button key={item.view} onClick={() => go(item.view)}
+                className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                <item.icon className="h-5 w-5" />
+                {item.label}
+                {isActive && <div className="w-1 h-1 rounded-full bg-primary" />}
+              </button>
+            );
+          })}
         </div>
       </nav>
 
       {/* ── Main ───────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
         {/* Desktop nav pills */}
-        <div className="hidden md:flex gap-2 mb-6">
-          {navItems.map(item => (
-            <button key={item.view} onClick={() => go(item.view)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                view === item.view ? 'bg-primary text-primary-foreground shadow-glow' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-              }`}>
-              <item.icon className="h-4 w-4" /> {item.label}
-            </button>
-          ))}
+        <div className="hidden md:flex gap-2 mb-6 items-center">
+          {navItems.map(item => {
+            const isWallet = item.view === 'wallet';
+            const isActive = view === item.view;
+
+            if (isWallet) {
+              return (
+                <button key={item.view} onClick={() => go(item.view)}
+                  className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-glow scale-105'
+                      : 'bg-card border-2 border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50'
+                  }`}>
+                  <item.icon className="h-4 w-4" /> {item.label}
+                </button>
+              );
+            }
+
+            return (
+              <button key={item.view} onClick={() => go(item.view)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  isActive ? 'bg-primary text-primary-foreground shadow-glow' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+                }`}>
+                <item.icon className="h-4 w-4" /> {item.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Alerts */}
@@ -129,8 +177,17 @@ export const Dashboard: React.FC = () => {
               Create Payment
             </button>
 
-            {/* Stats row — 3 cards */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* Stats row — 4 cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <button onClick={() => go('wallet')} className="bg-card rounded-2xl border border-border p-4 text-center hover:border-primary/30 hover:shadow-soft transition-all cursor-pointer group">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <WalletIcon className="h-4 w-4 text-primary" />
+                </div>
+                <p className="text-2xl font-display font-bold text-card-foreground">
+                  {walletBalance !== null ? `${sym}${walletBalance.toFixed(0)}` : '—'}
+                </p>
+                <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Wallet Balance</p>
+              </button>
               <div className="bg-card rounded-2xl border border-border p-4 text-center hover:border-primary/30 hover:shadow-soft transition-all">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <TrendingUp className="h-4 w-4 text-primary" />
@@ -190,6 +247,7 @@ export const Dashboard: React.FC = () => {
                 <div className="space-y-2">
                   {[
                     { label: 'Create Payment', icon: CreditCard, v: 'payment' as View },
+                    { label: 'Wallet', icon: WalletIcon, v: 'wallet' as View },
                     { label: 'View Transactions', icon: List, v: 'transactions' as View },
                     { label: 'Settings', icon: SettingsIcon, v: 'settings' as View },
                   ].map(a => (
@@ -229,6 +287,17 @@ export const Dashboard: React.FC = () => {
               <p className="text-muted-foreground text-sm">Your recent payment history</p>
             </div>
             <TransactionHistory />
+          </div>
+        )}
+
+        {/* ── Wallet ─────────────────────────────────────────────── */}
+        {view === 'wallet' && (
+          <div className="animate-fade-up">
+            <div className="text-center mb-6">
+              <h2 className="font-display text-3xl text-gradient mb-1">Wallet</h2>
+              <p className="text-muted-foreground text-sm">Your balance, deposits, and withdrawals</p>
+            </div>
+            <Wallet />
           </div>
         )}
 
