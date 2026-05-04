@@ -1,17 +1,22 @@
 import * as QRCode from 'qrcode';
 import { allPayClient } from './allpay';
+import { providerRegistry } from './providerRegistry.js';
 import { transactionRepository } from './repository.js';
 import type {
   User,
   Transaction,
-  AllPayWebhookPayload
+  AllPayWebhookPayload,
+  PaymentMethod,
+  PaymentProvider,
 } from '../types/index.js';
+import type { MobileMoneyCallbackPayload } from '../types/mobileMoney.js';
 
 export interface CreatePaymentRequest {
   amount: number;
   currency?: string;
   language?: string;
   description?: string;
+  paymentMethod?: 'card' | 'mobile_money' | 'auto';
   lineItems?: Array<{ name: string; price: number; quantity: number; includesVat?: boolean }>;
   customerEmail?: string;
   customerName?: string;
@@ -75,82 +80,15 @@ export class PaymentService {
         throw new Error('Amount exceeds maximum allowed value');
       }
 
-      // Create payment with AllPay
-      const allPayResponse = await allPayClient.createPayment(
-        request.amount,
-        {
-          ...user.merchantConfig,
-          currency: request.currency || user.merchantConfig.currency,
-          language: request.language || user.merchantConfig.language
-        },
-        request.description,
-        {
-          lineItems: request.lineItems,
-          customerEmail: request.customerEmail,
-          customerName: request.customerName,
-          customerPhone: request.customerPhone,
-          customerIdNumber: request.customerIdNumber,
-          maxInstallments: request.maxInstallments,
-          fixedInstallments: request.fixedInstallments,
-          expiresAt: request.expiresAt,
-          preauthorize: request.preauthorize,
-          showApplePay: request.showApplePay,
-          showBit: request.showBit,
-          customField1: request.customField1,
-          customField2: request.customField2,
-          notificationsUrl: request.webhookUrl,
-          successUrl: request.successUrl,
-          backlinkUrl: request.cancelUrl
-        }
-      );
+      // Determine payment method: auto-detect from phone number, or use explicit choice
+      const shouldUseMobileMoney = this.shouldRouteMobileMoney(request);
 
-      const paymentUrl = allPayResponse.payment_url;
-
-      if (!paymentUrl) {
-        throw new Error(
-          allPayResponse.error || 'Failed to create payment with AllPay'
-        );
+      if (shouldUseMobileMoney && request.customerPhone) {
+        return this._createMobileMoneyPayment(user, request, apiKeyId);
       }
 
-      // Store the AllPay order ID for status checking
-      const allPayOrderId = allPayResponse.order_id;
-
-      // Create transaction record in database
-      // For now, we'll store the order ID in the allpayTransactionId field
-      // In a proper implementation, we'd have separate fields for order_id and transaction_id
-      const transaction = await transactionRepository.create({
-        userId: user.id,
-        amount: request.amount,
-        currency: user.merchantConfig.currency || 'ILS',
-        paymentUrl: paymentUrl,
-        allpayTransactionId: allPayOrderId,
-        description: request.description,
-        lineItems: request.lineItems,
-        customerEmail: request.customerEmail,
-        customerName: request.customerName,
-        customerPhone: request.customerPhone,
-        customerIdNumber: request.customerIdNumber,
-        maxInstallments: request.maxInstallments,
-        fixedInstallments: request.fixedInstallments,
-        expiresAt: request.expiresAt,
-        preauthorize: request.preauthorize,
-        customField1: request.customField1,
-        customField2: request.customField2,
-        successUrl: request.successUrl,
-        cancelUrl: request.cancelUrl,
-        webhookUrl: request.webhookUrl,
-        metadata: request.metadata,
-        apiKeyId: apiKeyId
-      });
-
-      // Generate QR code for the payment URL
-      const qrCodeDataUrl = await this.generateQRCode(paymentUrl);
-
-      return {
-        transaction,
-        paymentUrl: paymentUrl,
-        qrCodeDataUrl
-      };
+      // Default: AllPay card payment
+      return this._createAllPayPayment(user, request, apiKeyId);
 
     } catch (error) {
       console.error('Error creating payment:', error);
@@ -161,6 +99,192 @@ export class PaymentService {
 
       throw new Error('An unexpected error occurred while creating the payment');
     }
+  }
+
+  /**
+   * Determine if a payment should be routed to mobile money.
+   */
+  private shouldRouteMobileMoney(request: CreatePaymentRequest): boolean {
+    // Explicit card request → AllPay
+    if (request.paymentMethod === 'card') return false;
+
+    // Explicit mobile money request
+    if (request.paymentMethod === 'mobile_money') return true;
+
+    // Auto mode (default): check if phone number matches a mobile money provider
+    if (request.customerPhone) {
+      return providerRegistry.isMobileMoneyNumber(request.customerPhone);
+    }
+
+    return false;
+  }
+
+  /**
+   * Create a mobile money payment (MTN MoMo, Airtel Money, M-Pesa).
+   */
+  private async _createMobileMoneyPayment(
+    user: User,
+    request: CreatePaymentRequest,
+    apiKeyId?: string
+  ): Promise<PaymentCreationResult> {
+    const externalId = `SB0-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:2894'}/payments/webhook/mobile-money`;
+
+    // Route to the correct provider based on phone number
+    const route = providerRegistry.routePayment(request.customerPhone!);
+    if (!route) {
+      throw new Error(`No mobile money provider found for phone number: ${request.customerPhone}`);
+    }
+
+    // Use the provider's currency if not explicitly set
+    const currency = request.currency || route.currency || user.merchantConfig.currency || 'UGX';
+
+    console.log(`Routing mobile money payment to ${route.provider} (${route.country}) for ${request.customerPhone}`);
+
+    // Send payment request to the mobile money provider
+    const momoResponse = await providerRegistry.requestPayment({
+      amount: request.amount,
+      currency,
+      customerPhone: route.normalizedPhone,
+      description: request.description || `Payment from ${user.shopName}`,
+      externalId,
+      callbackUrl,
+      payerMessage: request.description || `Payment to ${user.shopName}`,
+      payeeNote: `SB0Pay transaction for ${user.shopName}`,
+    });
+
+    if (!momoResponse.success) {
+      throw new Error(momoResponse.error || `Mobile money payment request failed via ${route.provider}`);
+    }
+
+    // Create transaction record
+    const transaction = await transactionRepository.create({
+      userId: user.id,
+      amount: request.amount,
+      currency,
+      paymentUrl: '', // Mobile money doesn't have a payment URL — it's push-based
+      allpayTransactionId: externalId,
+      paymentMethod: momoResponse.paymentMethod,
+      paymentProvider: momoResponse.provider,
+      providerReference: momoResponse.providerTransactionId,
+      providerMetadata: momoResponse.metadata,
+      description: request.description,
+      customerEmail: request.customerEmail,
+      customerName: request.customerName,
+      customerPhone: request.customerPhone,
+      successUrl: request.successUrl,
+      cancelUrl: request.cancelUrl,
+      webhookUrl: request.webhookUrl,
+      metadata: {
+        ...request.metadata,
+        routedCountry: route.country,
+        routedProvider: route.provider,
+      },
+      apiKeyId,
+    });
+
+    // Generate a QR code with transaction info (for display purposes)
+    const qrData = JSON.stringify({
+      transactionId: transaction.id,
+      provider: route.provider,
+      phone: request.customerPhone,
+      amount: request.amount,
+      currency,
+      status: 'pending',
+    });
+    const qrCodeDataUrl = await this.generateQRCode(qrData);
+
+    return {
+      transaction,
+      paymentUrl: '', // No URL for mobile money — push notification sent to phone
+      qrCodeDataUrl,
+    };
+  }
+
+  /**
+   * Create an AllPay card payment (existing flow).
+   */
+  private async _createAllPayPayment(
+    user: User,
+    request: CreatePaymentRequest,
+    apiKeyId?: string
+  ): Promise<PaymentCreationResult> {
+    // Create payment with AllPay
+    const allPayResponse = await allPayClient.createPayment(
+      request.amount,
+      {
+        ...user.merchantConfig,
+        currency: request.currency || user.merchantConfig.currency,
+        language: request.language || user.merchantConfig.language
+      },
+      request.description,
+      {
+        lineItems: request.lineItems,
+        customerEmail: request.customerEmail,
+        customerName: request.customerName,
+        customerPhone: request.customerPhone,
+        customerIdNumber: request.customerIdNumber,
+        maxInstallments: request.maxInstallments,
+        fixedInstallments: request.fixedInstallments,
+        expiresAt: request.expiresAt,
+        preauthorize: request.preauthorize,
+        showApplePay: request.showApplePay,
+        showBit: request.showBit,
+        customField1: request.customField1,
+        customField2: request.customField2,
+        notificationsUrl: request.webhookUrl,
+        successUrl: request.successUrl,
+        backlinkUrl: request.cancelUrl
+      }
+    );
+
+    const paymentUrl = allPayResponse.payment_url;
+
+    if (!paymentUrl) {
+      throw new Error(
+        allPayResponse.error || 'Failed to create payment with AllPay'
+      );
+    }
+
+    // Store the AllPay order ID for status checking
+    const allPayOrderId = allPayResponse.order_id;
+
+    // Create transaction record in database
+    const transaction = await transactionRepository.create({
+      userId: user.id,
+      amount: request.amount,
+      currency: user.merchantConfig.currency || 'ILS',
+      paymentUrl: paymentUrl,
+      allpayTransactionId: allPayOrderId,
+      paymentMethod: 'card',
+      paymentProvider: 'allpay',
+      description: request.description,
+      lineItems: request.lineItems,
+      customerEmail: request.customerEmail,
+      customerName: request.customerName,
+      customerPhone: request.customerPhone,
+      customerIdNumber: request.customerIdNumber,
+      maxInstallments: request.maxInstallments,
+      fixedInstallments: request.fixedInstallments,
+      expiresAt: request.expiresAt,
+      preauthorize: request.preauthorize,
+      customField1: request.customField1,
+      customField2: request.customField2,
+      successUrl: request.successUrl,
+      cancelUrl: request.cancelUrl,
+      webhookUrl: request.webhookUrl,
+      metadata: request.metadata,
+      apiKeyId: apiKeyId
+    });
+
+    // Generate QR code for the payment URL
+    const qrCodeDataUrl = await this.generateQRCode(paymentUrl);
+
+    return {
+      transaction,
+      paymentUrl: paymentUrl,
+      qrCodeDataUrl
+    };
   }
 
   /**
@@ -228,35 +352,55 @@ export class PaymentService {
         throw new Error('Transaction not found');
       }
 
-      // If transaction is already completed or failed, return as-is (no need to check AllPay again)
+      // If transaction is already completed or failed, return as-is (no need to check again)
       if (transaction.status === 'completed' || transaction.status === 'failed') {
         console.log(`Transaction ${transactionId} already finalized with status: ${transaction.status}`);
         return transaction;
       }
 
-      // For pending transactions, check with AllPay API for latest status
-      if (transaction.allpayTransactionId && transaction.status === 'pending') {
-        try {
-          console.log(`Checking AllPay status for order ID: ${transaction.allpayTransactionId}`);
-          const allPayStatus = await allPayClient.getPaymentStatus(transaction.allpayTransactionId);
+      // For pending transactions, check with the appropriate provider
+      if (transaction.status === 'pending') {
+        const provider = (transaction.paymentProvider || 'allpay') as string;
 
-          console.log('AllPay status response:', allPayStatus);
+        if (provider === 'allpay') {
+          // AllPay status check (existing flow)
+          if (transaction.allpayTransactionId) {
+            try {
+              console.log(`Checking AllPay status for order ID: ${transaction.allpayTransactionId}`);
+              const allPayStatus = await allPayClient.getPaymentStatus(transaction.allpayTransactionId);
+              console.log('AllPay status response:', allPayStatus);
 
-          // Map AllPay status to our internal status
-          const newStatus = this.mapAllPayStatusToTransactionStatus(allPayStatus.status || 'pending');
-
-          // Update transaction status if it has changed
-          if (newStatus !== transaction.status) {
-            console.log(`Updating transaction ${transactionId} status from ${transaction.status} to ${newStatus}`);
-            const updatedTransaction = await transactionRepository.updateStatus(transactionId, newStatus);
-
-            if (updatedTransaction) {
-              return updatedTransaction;
+              const newStatus = this.mapAllPayStatusToTransactionStatus(allPayStatus.status || 'pending');
+              if (newStatus !== transaction.status) {
+                console.log(`Updating transaction ${transactionId} status from ${transaction.status} to ${newStatus}`);
+                const updatedTransaction = await transactionRepository.updateStatus(transactionId, newStatus);
+                if (updatedTransaction) return updatedTransaction;
+              }
+            } catch (allPayError) {
+              console.warn('Failed to check AllPay status, returning local status:', allPayError);
             }
           }
-        } catch (allPayError) {
-          console.warn('Failed to check AllPay status, returning local status:', allPayError);
-          // If AllPay check fails, return the current local status
+        } else if (['mtn_momo', 'airtel_money', 'mpesa'].includes(provider)) {
+          // Mobile money status check
+          if (transaction.providerReference) {
+            try {
+              console.log(`Checking ${provider} status for ref: ${transaction.providerReference}`);
+              const momoStatus = await providerRegistry.getPaymentStatus(
+                provider as PaymentProvider,
+                transaction.providerReference
+              );
+              console.log(`${provider} status response:`, momoStatus);
+
+              const newStatus = this.mapMobileMoneyStatusToTransactionStatus(momoStatus.status);
+              if (newStatus !== transaction.status) {
+                console.log(`Updating transaction ${transactionId} status from ${transaction.status} to ${newStatus}`);
+                const updatedTransaction = await transactionRepository.updateStatus(transactionId, newStatus);
+                if (updatedTransaction) return updatedTransaction;
+              }
+            } catch (momoError) {
+              console.warn(`Failed to check ${provider} status, returning local status:`, momoError);
+            }
+          }
         }
       }
 
@@ -440,6 +584,92 @@ export class PaymentService {
     const normalizedStatus = String(allPayStatus).toLowerCase();
     console.log(`Mapping string AllPay status '${normalizedStatus}' to:`, stringStatusMap[normalizedStatus] || 'failed');
     return stringStatusMap[normalizedStatus] || 'failed';
+  }
+
+  /**
+   * Map mobile money status to our transaction status
+   */
+  private mapMobileMoneyStatusToTransactionStatus(
+    momoStatus: string
+  ): 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'partially_refunded' {
+    const statusMap: Record<string, 'pending' | 'completed' | 'failed' | 'cancelled'> = {
+      'pending': 'pending',
+      'processing': 'pending',
+      'completed': 'completed',
+      'failed': 'failed',
+      'cancelled': 'cancelled',
+      'timeout': 'failed',
+      'insufficient_funds': 'failed',
+    };
+
+    return statusMap[momoStatus] || 'failed';
+  }
+
+  /**
+   * Process a mobile money webhook/callback.
+   * Called by the mobile money webhook endpoints.
+   */
+  async processMobileMoneyCallback(
+    callback: MobileMoneyCallbackPayload
+  ): Promise<WebhookProcessingResult> {
+    try {
+      console.log(`Processing ${callback.provider} callback:`, callback);
+
+      // Find transaction by provider reference or external ID
+      let transaction = await transactionRepository.findByAllPayId(callback.externalId);
+
+      if (!transaction && callback.providerTransactionId) {
+        // Try finding by provider reference stored in provider_reference column
+        // This requires a query by provider_reference — for now use allpay_transaction_id
+        // since we store externalId there for mobile money transactions
+      }
+
+      if (!transaction) {
+        console.error(`Transaction not found for ${callback.provider} callback:`, callback.externalId);
+        return {
+          success: false,
+          error: 'Transaction not found',
+        };
+      }
+
+      const newStatus = this.mapMobileMoneyStatusToTransactionStatus(callback.status);
+
+      if (newStatus !== transaction.status) {
+        await transactionRepository.updateStatus(transaction.id, newStatus);
+        console.log(`Transaction ${transaction.id} status updated to ${newStatus} via ${callback.provider} callback`);
+      }
+
+      // If the merchant has a webhook URL configured, forward the notification
+      if (transaction.webhookUrl) {
+        try {
+          await fetch(transaction.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transactionId: transaction.id,
+              status: newStatus,
+              provider: callback.provider,
+              amount: transaction.amount,
+              currency: transaction.currency,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch (webhookError) {
+          console.warn('Failed to forward webhook to merchant:', webhookError);
+        }
+      }
+
+      return {
+        success: true,
+        transactionId: transaction.id,
+      };
+    } catch (error) {
+      console.error('Error processing mobile money callback:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   /**

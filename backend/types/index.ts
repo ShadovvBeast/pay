@@ -15,6 +15,9 @@ export interface MerchantConfig {
   language: string;
 }
 
+export type PaymentMethod = 'card' | 'mtn_momo' | 'airtel_money' | 'mpesa' | 'mobile_money';
+export type PaymentProvider = 'allpay' | 'mtn_momo' | 'airtel_money' | 'mpesa';
+
 export interface Transaction {
   id: string;
   userId: string;
@@ -23,6 +26,10 @@ export interface Transaction {
   paymentUrl: string;
   allpayTransactionId: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'partially_refunded';
+  paymentMethod: PaymentMethod;
+  paymentProvider: PaymentProvider;
+  providerReference?: string;
+  providerMetadata?: Record<string, any>;
   description?: string;
   lineItems?: PublicLineItem[];
   customerEmail?: string;
@@ -58,6 +65,10 @@ export interface CreateTransactionData {
   currency: string;
   paymentUrl: string;
   allpayTransactionId?: string;
+  paymentMethod?: PaymentMethod;
+  paymentProvider?: PaymentProvider;
+  providerReference?: string;
+  providerMetadata?: Record<string, any>;
   description?: string;
   lineItems?: PublicLineItem[];
   customerEmail?: string;
@@ -217,6 +228,7 @@ export interface PublicCreatePaymentRequest {
   currency?: string;
   language?: string; // Payment page language: 'he', 'en', 'ar', 'ru', or 'auto'
   description?: string;
+  paymentMethod?: 'card' | 'mobile_money' | 'auto'; // 'auto' routes by phone number
   lineItems?: PublicLineItem[]; // Optional line items for itemized payments
   customerEmail?: string;
   customerName?: string;
@@ -243,6 +255,8 @@ export interface PublicPaymentResponse {
   status: string;
   paymentUrl: string;
   qrCodeDataUrl?: string;
+  paymentMethod?: string;
+  paymentProvider?: string;
   description?: string;
   lineItems?: PublicLineItem[];
   expiresAt?: string;

@@ -40,6 +40,10 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url, 
         allpay_transaction_id,
         status,
+        payment_method,
+        payment_provider,
+        provider_reference,
+        provider_metadata,
         description,
         line_items,
         customer_email,
@@ -59,7 +63,7 @@ export class PostgresTransactionRepository implements TransactionRepository {
         api_key_id,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW(), NOW())
       RETURNING 
         id,
         user_id as "userId",
@@ -68,6 +72,10 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url as "paymentUrl",
         allpay_transaction_id as "allpayTransactionId",
         status,
+        payment_method as "paymentMethod",
+        payment_provider as "paymentProvider",
+        provider_reference as "providerReference",
+        provider_metadata as "providerMetadata",
         description,
         line_items as "lineItems",
         customer_email as "customerEmail",
@@ -96,6 +104,10 @@ export class PostgresTransactionRepository implements TransactionRepository {
       sanitizedData.paymentUrl,
       sanitizedData.allpayTransactionId || null,
       'pending', // Default status
+      sanitizedData.paymentMethod || 'card',
+      sanitizedData.paymentProvider || 'allpay',
+      sanitizedData.providerReference || null,
+      sanitizedData.providerMetadata ? JSON.stringify(sanitizedData.providerMetadata) : null,
       sanitizedData.description || null,
       sanitizedData.lineItems ? JSON.stringify(sanitizedData.lineItems) : null,
       sanitizedData.customerEmail || null,
@@ -128,6 +140,9 @@ export class PostgresTransactionRepository implements TransactionRepository {
       if (result.metadata && typeof result.metadata === 'string') {
         result.metadata = JSON.parse(result.metadata);
       }
+      if (result.providerMetadata && typeof result.providerMetadata === 'string') {
+        result.providerMetadata = JSON.parse(result.providerMetadata);
+      }
       return result;
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -148,6 +163,10 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url as "paymentUrl",
         allpay_transaction_id as "allpayTransactionId",
         status,
+        payment_method as "paymentMethod",
+        payment_provider as "paymentProvider",
+        provider_reference as "providerReference",
+        provider_metadata as "providerMetadata",
         description,
         line_items as "lineItems",
         customer_email as "customerEmail",
@@ -181,6 +200,9 @@ export class PostgresTransactionRepository implements TransactionRepository {
         if (result.metadata && typeof result.metadata === 'string') {
           result.metadata = JSON.parse(result.metadata);
         }
+        if (result.providerMetadata && typeof result.providerMetadata === 'string') {
+          result.providerMetadata = JSON.parse(result.providerMetadata);
+        }
       }
       return result;
     } catch (error) {
@@ -202,6 +224,10 @@ export class PostgresTransactionRepository implements TransactionRepository {
         payment_url as "paymentUrl",
         allpay_transaction_id as "allpayTransactionId",
         status,
+        payment_method as "paymentMethod",
+        payment_provider as "paymentProvider",
+        provider_reference as "providerReference",
+        provider_metadata as "providerMetadata",
         description,
         line_items as "lineItems",
         customer_email as "customerEmail",
@@ -237,6 +263,9 @@ export class PostgresTransactionRepository implements TransactionRepository {
         }
         if (row.metadata && typeof row.metadata === 'string') {
           row.metadata = JSON.parse(row.metadata as string);
+        }
+        if (row.providerMetadata && typeof (row.providerMetadata as any) === 'string') {
+          row.providerMetadata = JSON.parse(row.providerMetadata as any);
         }
       });
       return result.rows;

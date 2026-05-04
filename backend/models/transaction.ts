@@ -59,10 +59,16 @@ export function validateCurrency(currency: string): boolean {
 
 /**
  * Validates payment URL format
+ * For mobile money payments, an empty URL is valid (push-based, no URL).
  */
 export function validatePaymentUrl(url: string): boolean {
-    if (!url || typeof url !== 'string') {
+    if (typeof url !== 'string') {
         return false;
+    }
+
+    // Allow empty string for mobile money payments (push-based)
+    if (url === '') {
+        return true;
     }
 
     try {
@@ -217,7 +223,28 @@ export function sanitizeCreateTransactionData(data: CreateTransactionData): Crea
         amount: Math.round(data.amount * 100) / 100, // Round to 2 decimal places
         currency: data.currency.trim().toUpperCase(),
         paymentUrl: data.paymentUrl.trim(),
-        allpayTransactionId: data.allpayTransactionId?.trim()
+        allpayTransactionId: data.allpayTransactionId?.trim(),
+        paymentMethod: data.paymentMethod,
+        paymentProvider: data.paymentProvider,
+        providerReference: data.providerReference?.trim(),
+        providerMetadata: data.providerMetadata,
+        description: data.description,
+        lineItems: data.lineItems,
+        customerEmail: data.customerEmail?.trim(),
+        customerName: data.customerName?.trim(),
+        customerPhone: data.customerPhone?.trim(),
+        customerIdNumber: data.customerIdNumber?.trim(),
+        maxInstallments: data.maxInstallments,
+        fixedInstallments: data.fixedInstallments,
+        expiresAt: data.expiresAt,
+        preauthorize: data.preauthorize,
+        customField1: data.customField1,
+        customField2: data.customField2,
+        successUrl: data.successUrl,
+        cancelUrl: data.cancelUrl,
+        webhookUrl: data.webhookUrl,
+        metadata: data.metadata,
+        apiKeyId: data.apiKeyId,
     };
 }
 

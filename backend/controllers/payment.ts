@@ -2,7 +2,9 @@ import { Elysia, t } from 'elysia';
 import { paymentService } from '../services/payment.js';
 import { authService } from '../services/auth.js';
 import { userRepository } from '../services/repository.js';
+import { providerRegistry } from '../services/providerRegistry.js';
 import type { ErrorResponse } from '../types/index.js';
+import type { PaymentProvider } from '../types/mobileMoney.js';
 
 // Request/Response types
 interface CreatePaymentRequest {
@@ -868,4 +870,85 @@ export const paymentController = new Elysia({ prefix: '/payments' })
   }, {
     body: t.Any()
   })
+
+  // ── Mobile Money Webhook Endpoints (no auth required) ──────────────────
+  // Generic mobile money callback endpoint
+  .post('/webhook/mobile-money', async ({ body, headers, set }) => {
+    try {
+      const payload = body as Record<string, any>;
+      if (!payload) {
+        set.status = 400;
+        return { error: { code: 'MISSING_PAYLOAD', message: 'Webhook payload is required' }, timestamp: new Date().toISOString(), requestId: crypto.randomUUID() };
+      }
+
+      // Try to detect provider from payload structure
+      let provider: PaymentProvider | null = null;
+      if (payload.Body?.stkCallback) provider = 'mpesa';
+      else if (payload.transaction?.airtel_money_id || payload.data?.transaction) provider = 'airtel_money';
+      else if (payload.externalId || payload.referenceId) provider = 'mtn_momo';
+
+      if (!provider) {
+        set.status = 400;
+        return { error: { code: 'UNKNOWN_PROVIDER', message: 'Could not determine mobile money provider from payload' }, timestamp: new Date().toISOString(), requestId: crypto.randomUUID() };
+      }
+
+      const callback = providerRegistry.parseCallback(provider, payload, headers as Record<string, string>);
+      if (!callback) {
+        set.status = 400;
+        return { error: { code: 'INVALID_CALLBACK', message: 'Failed to parse callback payload' }, timestamp: new Date().toISOString(), requestId: crypto.randomUUID() };
+      }
+
+      const result = await paymentService.processMobileMoneyCallback(callback);
+      if (!result.success) {
+        set.status = 400;
+        return { error: { code: 'CALLBACK_FAILED', message: result.error || 'Failed to process callback' }, timestamp: new Date().toISOString(), requestId: crypto.randomUUID() };
+      }
+
+      return { success: true, transactionId: result.transactionId };
+    } catch (error) {
+      console.error('Mobile money webhook error:', error);
+      set.status = 500;
+      return { error: { code: 'INTERNAL_ERROR', message: 'Failed to process mobile money webhook' }, timestamp: new Date().toISOString(), requestId: crypto.randomUUID() };
+    }
+  }, { body: t.Any() })
+
+  // Provider-specific webhook endpoints
+  .post('/webhook/mtn-momo', async ({ body, set }) => {
+    try {
+      const callback = providerRegistry.parseCallback('mtn_momo', body as Record<string, any>);
+      if (!callback) { set.status = 400; return { error: 'Invalid MTN MoMo callback' }; }
+      const result = await paymentService.processMobileMoneyCallback(callback);
+      return result.success ? { success: true, transactionId: result.transactionId } : (set.status = 400, { error: result.error });
+    } catch (error) {
+      console.error('MTN MoMo webhook error:', error);
+      set.status = 500;
+      return { error: 'Internal error' };
+    }
+  }, { body: t.Any() })
+
+  .post('/webhook/airtel-money', async ({ body, set }) => {
+    try {
+      const callback = providerRegistry.parseCallback('airtel_money', body as Record<string, any>);
+      if (!callback) { set.status = 400; return { error: 'Invalid Airtel Money callback' }; }
+      const result = await paymentService.processMobileMoneyCallback(callback);
+      return result.success ? { success: true, transactionId: result.transactionId } : (set.status = 400, { error: result.error });
+    } catch (error) {
+      console.error('Airtel Money webhook error:', error);
+      set.status = 500;
+      return { error: 'Internal error' };
+    }
+  }, { body: t.Any() })
+
+  .post('/webhook/mpesa', async ({ body, set }) => {
+    try {
+      const callback = providerRegistry.parseCallback('mpesa', body as Record<string, any>);
+      if (!callback) { set.status = 400; return { error: 'Invalid M-Pesa callback' }; }
+      const result = await paymentService.processMobileMoneyCallback(callback);
+      return result.success ? { success: true, transactionId: result.transactionId } : (set.status = 400, { error: result.error });
+    } catch (error) {
+      console.error('M-Pesa webhook error:', error);
+      set.status = 500;
+      return { error: 'Internal error' };
+    }
+  }, { body: t.Any() })
   );

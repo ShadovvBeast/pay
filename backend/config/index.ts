@@ -16,6 +16,31 @@ export const config = {
     apiKey: process.env.ALLPAY_API_KEY || 'E51C3EA351988CB77BCC97D2642A45AE',
   },
 
+  // MTN MoMo Configuration
+  mtnMomo: {
+    baseUrl: process.env.MTN_MOMO_BASE_URL || 'https://sandbox.momodeveloper.mtn.com',
+    subscriptionKey: process.env.MTN_MOMO_SUBSCRIPTION_KEY || '',
+    apiUserId: process.env.MTN_MOMO_API_USER_ID || '',
+    apiKey: process.env.MTN_MOMO_API_KEY || '',
+    environment: process.env.MTN_MOMO_ENVIRONMENT || 'sandbox',
+  },
+
+  // Airtel Money Configuration
+  airtelMoney: {
+    baseUrl: process.env.AIRTEL_MONEY_BASE_URL || 'https://openapiuat.airtel.africa',
+    clientId: process.env.AIRTEL_MONEY_CLIENT_ID || '',
+    clientSecret: process.env.AIRTEL_MONEY_CLIENT_SECRET || '',
+  },
+
+  // M-Pesa (Safaricom Daraja) Configuration
+  mpesa: {
+    baseUrl: process.env.MPESA_BASE_URL || 'https://sandbox.safaricom.co.ke',
+    consumerKey: process.env.MPESA_CONSUMER_KEY || '',
+    consumerSecret: process.env.MPESA_CONSUMER_SECRET || '',
+    businessShortCode: process.env.MPESA_BUSINESS_SHORT_CODE || '',
+    passkey: process.env.MPESA_PASSKEY || '',
+  },
+
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production',

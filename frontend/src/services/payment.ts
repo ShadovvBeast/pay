@@ -7,6 +7,8 @@ export interface CreatePaymentRequest {
   amount: number;
   description?: string;
   customerEmail?: string;
+  customerPhone?: string;
+  paymentMethod?: 'card' | 'mobile_money' | 'auto';
 }
 
 export interface CreatePaymentResponse {
@@ -15,6 +17,8 @@ export interface CreatePaymentResponse {
     amount: number;
     currency: string;
     status: string;
+    paymentMethod?: string;
+    paymentProvider?: string;
     createdAt: Date;
   };
   paymentUrl: string;
