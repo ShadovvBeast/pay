@@ -41,6 +41,7 @@ There are two authentication methods:
     { name: 'Public API', description: 'Third-party payment integration endpoints (API key auth)' },
     { name: 'Webhooks', description: 'Payment provider callback endpoints (no auth)' },
     { name: 'Providers', description: 'Payment provider information' },
+    { name: 'Wallet', description: 'Merchant wallet — balance, deposits, and withdrawals (JWT auth)' },
   ],
   components: {
     securitySchemes: {
@@ -910,6 +911,137 @@ There are two authentication methods:
           '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           '404': { description: 'Payment not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+
+    // ── Wallet ─────────────────────────────────────────────────────────
+    '/wallet/balance': {
+      get: {
+        tags: ['Wallet'],
+        summary: 'Get wallet balance',
+        description: 'Returns the current wallet balance and currency for the authenticated merchant.',
+        security: [{ jwtAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Wallet balance',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    balance: { type: 'number', example: 1250.75 },
+                    currency: { type: 'string', example: 'ILS' },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/wallet/transactions': {
+      get: {
+        tags: ['Wallet'],
+        summary: 'Get wallet transaction history',
+        description: 'Returns a paginated list of wallet transactions (deposits, withdrawals, refund debits).',
+        security: [{ jwtAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Wallet transactions',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    transactions: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          walletId: { type: 'string', format: 'uuid' },
+                          type: { type: 'string', enum: ['deposit', 'withdrawal', 'refund_debit', 'adjustment'] },
+                          amount: { type: 'number', example: 100.5 },
+                          balanceAfter: { type: 'number', example: 1250.75 },
+                          referenceType: { type: 'string', nullable: true },
+                          referenceId: { type: 'string', nullable: true },
+                          description: { type: 'string', nullable: true },
+                          createdAt: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        limit: { type: 'integer' },
+                        offset: { type: 'integer' },
+                        total: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/wallet/withdraw': {
+      post: {
+        tags: ['Wallet'],
+        summary: 'Withdraw from wallet',
+        description: 'Withdraw funds from the merchant wallet. Fails if insufficient balance.',
+        security: [{ jwtAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['amount'],
+                properties: {
+                  amount: { type: 'number', minimum: 0.01, maximum: 999999.99, example: 500.0 },
+                  description: { type: 'string', maxLength: 255, example: 'Monthly withdrawal' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Withdrawal processed',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    transaction: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        type: { type: 'string', example: 'withdrawal' },
+                        amount: { type: 'number' },
+                        balanceAfter: { type: 'number' },
+                        description: { type: 'string' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Insufficient balance', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Wallet not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },
     },

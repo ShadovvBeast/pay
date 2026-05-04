@@ -9,6 +9,8 @@ import { paymentController } from './controllers/payment';
 import { apiKeyController } from './controllers/apiKeys';
 import { publicApiController } from './controllers/publicApi';
 import { docsController } from './controllers/docs';
+import { docsLegacyController } from './controllers/docsLegacy';
+import { walletController } from './controllers/wallet';
 import { providerRegistry } from './services/providerRegistry';
 
 // Initialize database before starting server
@@ -143,6 +145,8 @@ async function startServer() {
       .use(authController)
       .use(paymentController)
       .use(apiKeyController)
+      .use(walletController)
+      .use(docsLegacyController)
       .use(docsController)
       .group('/api', (app) => app.use(publicApiController))
       .listen(config.server.port);

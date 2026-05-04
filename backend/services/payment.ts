@@ -2,6 +2,7 @@ import * as QRCode from 'qrcode';
 import { allPayClient } from './allpay';
 import { providerRegistry } from './providerRegistry.js';
 import { transactionRepository } from './repository.js';
+import { walletService } from './wallet.js';
 import type {
   User,
   Transaction,
@@ -476,6 +477,23 @@ export class PaymentService {
       if (newStatus !== transaction.status) {
         await transactionRepository.updateStatus(transaction.id, newStatus);
         console.log(`Transaction ${transaction.id} status updated to ${newStatus}`);
+
+        // Credit wallet when payment is completed
+        if (newStatus === 'completed' && transaction.status !== 'completed') {
+          try {
+            await walletService.credit(
+              transaction.userId,
+              transaction.amount,
+              'payment',
+              transaction.id,
+              `Payment received – ${transaction.description || transaction.id}`
+            );
+            console.log(`Wallet credited ${transaction.amount} for user ${transaction.userId}`);
+          } catch (walletError) {
+            console.error('Failed to credit wallet:', walletError);
+            // Don't fail the webhook — the payment status is already updated
+          }
+        }
       }
 
       return {
@@ -637,6 +655,22 @@ export class PaymentService {
       if (newStatus !== transaction.status) {
         await transactionRepository.updateStatus(transaction.id, newStatus);
         console.log(`Transaction ${transaction.id} status updated to ${newStatus} via ${callback.provider} callback`);
+
+        // Credit wallet when payment is completed
+        if (newStatus === 'completed' && transaction.status !== 'completed') {
+          try {
+            await walletService.credit(
+              transaction.userId,
+              transaction.amount,
+              'payment',
+              transaction.id,
+              `${callback.provider} payment received – ${transaction.id}`
+            );
+            console.log(`Wallet credited ${transaction.amount} for user ${transaction.userId} via ${callback.provider}`);
+          } catch (walletError) {
+            console.error('Failed to credit wallet:', walletError);
+          }
+        }
       }
 
       // If the merchant has a webhook URL configured, forward the notification
@@ -740,6 +774,22 @@ export class PaymentService {
       const updated = await transactionRepository.updateStatus(transactionId, newStatus);
       if (!updated) {
         throw new Error('Failed to update transaction status');
+      }
+
+      // Debit wallet for the refunded amount
+      try {
+        await walletService.debit(
+          userId,
+          amountToRefund,
+          'refund_debit',
+          'refund',
+          transactionId,
+          `Refund – ${transaction.description || transactionId}`
+        );
+        console.log(`Wallet debited ${amountToRefund} for refund on transaction ${transactionId}`);
+      } catch (walletError) {
+        console.error('Failed to debit wallet for refund:', walletError);
+        // Don't fail the refund — the payment provider already processed it
       }
 
       return updated;

@@ -284,3 +284,27 @@ export interface PublicErrorResponse {
   timestamp: string;
   requestId: string;
 }
+
+// Wallet Types
+export type WalletTransactionType = 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment';
+
+export interface Wallet {
+  id: string;
+  userId: string;
+  balance: number;
+  currency: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WalletTransaction {
+  id: string;
+  walletId: string;
+  type: WalletTransactionType;
+  amount: number;
+  balanceAfter: number;
+  referenceType?: string;
+  referenceId?: string;
+  description?: string;
+  createdAt: Date;
+}
