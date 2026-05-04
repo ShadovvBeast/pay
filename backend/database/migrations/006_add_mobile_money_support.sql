@@ -7,7 +7,8 @@ ALTER TABLE transactions
   ADD COLUMN IF NOT EXISTS payment_method VARCHAR(30) NOT NULL DEFAULT 'card',
   ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(30) NOT NULL DEFAULT 'allpay',
   ADD COLUMN IF NOT EXISTS provider_reference VARCHAR(255),
-  ADD COLUMN IF NOT EXISTS provider_metadata JSONB;
+  ADD COLUMN IF NOT EXISTS provider_metadata JSONB,
+  ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(30);
 
 -- Update existing transactions to reflect they used AllPay/card
 UPDATE transactions 
