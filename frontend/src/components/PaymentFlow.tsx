@@ -163,23 +163,20 @@ export const PaymentFlow: React.FC<PaymentFlowProps> = ({ onPaymentComplete, onP
 
             {/* Mobile Money */}
             <button
-              onClick={() => setPaymentMethodChoice('mobile_money')}
-              className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-                paymentMethodChoice === 'mobile_money'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50 hover:bg-primary/5'
-              }`}
+              disabled
+              className="w-full flex items-center gap-4 p-4 rounded-xl border border-border opacity-60 cursor-not-allowed text-left relative"
             >
               <div className="text-3xl">📱</div>
               <div>
                 <div className="font-semibold text-foreground">Mobile Money</div>
                 <div className="text-sm text-muted-foreground">MTN MoMo, Airtel Money, M-Pesa</div>
               </div>
+              <span className="absolute top-2 right-2 text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">Coming Soon</span>
             </button>
           </div>
 
-          {/* Phone number input for mobile money */}
-          {paymentMethodChoice === 'mobile_money' && (
+          {/* Phone number input for mobile money - hidden while feature is in development */}
+          {false && paymentMethodChoice === 'mobile_money' && (
             <div className="mt-4 space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">

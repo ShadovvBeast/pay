@@ -2,7 +2,6 @@ steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/sb0pay', '.']
-    dir: 'backend'
   
   # Push the container image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -24,11 +23,13 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
+      - '--set-secrets'
+      - 'DATABASE_URL=SB0PAY_DATABASE_URL:latest,ALLPAY_API_KEY=ALLPAY_API_KEY:latest,ALLPAY_LOGIN=ALLPAY_LOGIN:latest,JWT_SECRET=JWT_SECRET:latest,JWT_REFRESH_SECRET=JWT_REFRESH_SECRET:latest'
+      - '--set-env-vars'
+      - 'NODE_ENV=production,CORS_ORIGIN=https://pay.sb0.tech,FRONTEND_URL=https://pay.sb0.tech'
 
 images:
   - 'gcr.io/$PROJECT_ID/sb0pay'
 
 options:
   logging: CLOUD_LOGGING_ONLY
-
-serviceAccount: 'projects/sbzero/serviceAccounts/678576192331-compute@developer.gserviceaccount.com'

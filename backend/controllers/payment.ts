@@ -214,7 +214,9 @@ export const paymentController = new Elysia({ prefix: '/payments' })
     body: t.Object({
       amount: t.Number({ minimum: 0.01, maximum: 999999.99 }),
       description: t.Optional(t.String({ maxLength: 255 })),
-      customerEmail: t.Optional(t.String({ format: 'email' }))
+      customerEmail: t.Optional(t.String({ format: 'email' })),
+      paymentMethod: t.Optional(t.String()),
+      customerPhone: t.Optional(t.String())
     })
   })
 

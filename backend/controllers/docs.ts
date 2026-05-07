@@ -9,8 +9,8 @@ const OPENAPI_SPEC = {
   openapi: '3.0.3',
   info: {
     title: 'SB0 Pay API',
-    version: '1.2.0',
-    description: `SB0 Pay is a mobile-first Point of Sale (PoS) system that integrates with the AllPay payment gateway.
+    version: '1.3.0',
+    description: `SB0 Pay is a mobile-first Point of Sale (PoS) system that integrates with AllPay and mobile money providers (MTN MoMo, Airtel Money, M-Pesa).
 
 ## Authentication
 
@@ -19,10 +19,19 @@ There are two authentication methods:
 - **JWT (Cookie/Bearer)** — Used by the merchant dashboard UI. Obtained via \`/auth/login\`.
 - **API Key (Bearer)** — Used by third-party integrations via \`/api/v1/*\`. Keys are prefixed with \`sb0_live_\` or \`sb0_test_\`.
 
+## Payment Methods
+
+- **card** — Credit/debit card via AllPay gateway
+- **mtn_momo** — MTN Mobile Money
+- **airtel_money** — Airtel Money
+- **mpesa** — M-Pesa (Safaricom)
+- **mobile_money** — Auto-route by phone number prefix
+
 ## Important Notes
 
 - All amounts are in **decimal format** (e.g. \`342.60\` for 342.60 ILS), NOT in minor units.
 - When using \`lineItems\`, the sum of (price × quantity) for all items must equal the total \`amount\` (±0.01 tolerance).
+- Mobile money payments require a \`customerPhone\` field.
 - Consistent error format: \`{ error: { code, message, type?, details? }, timestamp, requestId }\``,
     contact: {
       name: 'SB0 Pay Support',
@@ -31,7 +40,7 @@ There are two authentication methods:
   },
   servers: [
     { url: 'http://localhost:3001', description: 'Local development' },
-    { url: 'https://sb0pay-678576192331.us-central1.run.app', description: 'Production' },
+    { url: 'https://sb0pay-410118487888.us-central1.run.app', description: 'Production' },
   ],
   tags: [
     { name: 'Health', description: 'Server health and status' },
@@ -122,6 +131,9 @@ There are two authentication methods:
             enum: ['pending', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded'],
           },
           paymentUrl: { type: 'string', format: 'uri' },
+          paymentMethod: { type: 'string', enum: ['card', 'mtn_momo', 'airtel_money', 'mpesa', 'mobile_money'], description: 'Payment method used' },
+          paymentProvider: { type: 'string', enum: ['allpay', 'mtn_momo', 'airtel_money', 'mpesa'], description: 'Payment provider' },
+          customerPhone: { type: 'string', description: 'Customer phone (for mobile money)' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -489,7 +501,7 @@ There are two authentication methods:
       post: {
         tags: ['Payments (Merchant)'],
         summary: 'Create payment',
-        description: 'Creates a payment via AllPay, returns a payment URL and QR code.',
+        description: 'Creates a payment via AllPay or mobile money provider, returns a payment URL and QR code.',
         security: [{ jwtAuth: [] }],
         requestBody: {
           required: true,
@@ -502,6 +514,8 @@ There are two authentication methods:
                   amount: { type: 'number', minimum: 0.01, maximum: 999999.99, example: 100.5 },
                   description: { type: 'string', maxLength: 255 },
                   customerEmail: { type: 'string', format: 'email' },
+                  paymentMethod: { type: 'string', enum: ['card', 'mtn_momo', 'airtel_money', 'mpesa', 'mobile_money'], description: 'Payment method (defaults to card/AllPay)' },
+                  customerPhone: { type: 'string', description: 'Customer phone number (required for mobile money payments)' },
                 },
               },
             },
