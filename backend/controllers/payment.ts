@@ -809,7 +809,8 @@ export const paymentController = new Elysia({ prefix: '/payments' })
   }, {
     params: t.Object({
       id: t.String({ minLength: 1 })
-    })
+    }),
+    body: t.Optional(t.Object({}))
   })
 
   // Remove auth requirement for webhook endpoint

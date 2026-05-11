@@ -286,10 +286,11 @@ export interface PublicErrorResponse {
 }
 
 // Wallet Types
-export type WalletTransactionType = 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment';
+export type WalletTransactionType = 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment' | 'transfer_in' | 'transfer_out';
 
 export interface Wallet {
   id: string;
+  walletId: string; // 20-character public wallet ID for transfers
   userId: string;
   balance: number;
   currency: string;

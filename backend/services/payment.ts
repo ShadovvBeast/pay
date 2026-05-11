@@ -3,6 +3,7 @@ import { allPayClient } from './allpay';
 import { providerRegistry } from './providerRegistry.js';
 import { transactionRepository } from './repository.js';
 import { walletService } from './wallet.js';
+import { db } from './database.js';
 import type {
   User,
   Transaction,
@@ -486,9 +487,10 @@ export class PaymentService {
               transaction.amount,
               'payment',
               transaction.id,
-              `Payment received – ${transaction.description || transaction.id}`
+              `Payment received – ${transaction.description || transaction.id}`,
+              transaction.currency
             );
-            console.log(`Wallet credited ${transaction.amount} for user ${transaction.userId}`);
+            console.log(`Wallet credited ${transaction.amount} ${transaction.currency} for user ${transaction.userId}`);
           } catch (walletError) {
             console.error('Failed to credit wallet:', walletError);
             // Don't fail the webhook — the payment status is already updated
@@ -664,9 +666,10 @@ export class PaymentService {
               transaction.amount,
               'payment',
               transaction.id,
-              `${callback.provider} payment received – ${transaction.id}`
+              `${callback.provider} payment received – ${transaction.id}`,
+              transaction.currency
             );
-            console.log(`Wallet credited ${transaction.amount} for user ${transaction.userId} via ${callback.provider}`);
+            console.log(`Wallet credited ${transaction.amount} ${transaction.currency} for user ${transaction.userId} via ${callback.provider}`);
           } catch (walletError) {
             console.error('Failed to credit wallet:', walletError);
           }
@@ -888,6 +891,31 @@ export class PaymentService {
     } catch (error) {
       console.error('Error getting transaction count:', error);
       throw new Error('Failed to retrieve transaction count');
+    }
+  }
+
+  /**
+   * Expire pending transactions older than 6 hours by marking them as failed.
+   * Runs periodically to clean up stale payments.
+   */
+  async expireStaleTransactions(): Promise<number> {
+    try {
+      const result = await db.query(
+        `UPDATE transactions 
+         SET status = 'failed', updated_at = NOW() 
+         WHERE status = 'pending' 
+           AND created_at < NOW() - INTERVAL '6 hours'
+         RETURNING id`
+      );
+      
+      const count = result.rowCount || 0;
+      if (count > 0) {
+        console.log(`Expired ${count} stale pending transaction(s) older than 6 hours`);
+      }
+      return count;
+    } catch (error) {
+      console.error('Error expiring stale transactions:', error);
+      return 0;
     }
   }
 }

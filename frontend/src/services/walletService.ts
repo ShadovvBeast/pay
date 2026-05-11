@@ -5,18 +5,31 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:2894';
 export interface WalletBalance {
   balance: number;
   currency: string;
+  walletId: string;
 }
 
 export interface WalletTransaction {
   id: string;
   walletId: string;
-  type: 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment';
+  type: 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment' | 'transfer_in' | 'transfer_out';
   amount: number;
   balanceAfter: number;
   referenceType?: string;
   referenceId?: string;
   description?: string;
   createdAt: string;
+}
+
+export interface WalletLookupResult {
+  walletId: string;
+  shopName: string;
+  ownerName: string;
+  currency: string;
+}
+
+export interface TransferResponse {
+  message: string;
+  transaction: WalletTransaction;
 }
 
 export interface WalletTransactionsResponse {
@@ -83,6 +96,34 @@ class WalletService {
 
     if (!response.ok) {
       await handleApiError(response, 'Withdrawal failed');
+    }
+
+    return await response.json();
+  }
+
+  async lookupWallet(walletId: string): Promise<WalletLookupResult> {
+    const response = await fetch(`${API_BASE_URL}/wallet/lookup/${walletId.toUpperCase().trim()}`, {
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Wallet not found');
+    }
+
+    return await response.json();
+  }
+
+  async transfer(toWalletId: string, amount: number, description?: string): Promise<TransferResponse> {
+    const response = await fetch(`${API_BASE_URL}/wallet/transfer`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ toWalletId: toWalletId.toUpperCase().trim(), amount, description }),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Transfer failed');
     }
 
     return await response.json();

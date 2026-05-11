@@ -10,7 +10,7 @@ import type { ErrorResponse } from '../types/index.js';
  */
 export const walletController = new Elysia({ prefix: '/wallet' })
 
-  // Get wallet balance
+  // Get wallet balance (includes walletId)
   .get('/balance', async ({ headers, cookie, set }) => {
     try {
       const token = extractToken(headers, cookie);
@@ -19,13 +19,106 @@ export const walletController = new Elysia({ prefix: '/wallet' })
       const validation = await authService.validateAccessToken(token);
       if (!validation.isValid || !validation.payload) return unauthorized(set);
 
-      const { balance, currency } = await walletService.getBalance(validation.payload.userId);
+      const wallet = await walletService.getOrCreateWallet(validation.payload.userId);
 
-      return { balance, currency };
+      return { balance: wallet.balance, currency: wallet.currency, walletId: wallet.walletId };
     } catch (error) {
       console.error('Wallet balance error:', error);
       return internalError(set, 'Failed to retrieve wallet balance');
     }
+  })
+
+  // Look up a wallet by its public wallet ID (for transfer confirmation)
+  .get('/lookup/:walletId', async ({ params, headers, cookie, set }) => {
+    try {
+      const token = extractToken(headers, cookie);
+      if (!token) return unauthorized(set);
+
+      const validation = await authService.validateAccessToken(token);
+      if (!validation.isValid || !validation.payload) return unauthorized(set);
+
+      const result = await walletService.lookupByWalletId(params.walletId);
+
+      if (!result) {
+        set.status = 404;
+        return {
+          error: { code: 'WALLET_NOT_FOUND', message: 'No wallet found with that ID' },
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+        };
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Wallet lookup error:', error);
+      return internalError(set, 'Failed to look up wallet');
+    }
+  }, {
+    params: t.Object({
+      walletId: t.String({ minLength: 20, maxLength: 20 })
+    })
+  })
+
+  // Transfer to another wallet
+  .post('/transfer', async ({ body, headers, cookie, set }) => {
+    try {
+      const token = extractToken(headers, cookie);
+      if (!token) return unauthorized(set);
+
+      const validation = await authService.validateAccessToken(token);
+      if (!validation.isValid || !validation.payload) return unauthorized(set);
+
+      const { toWalletId, amount, description } = body as { toWalletId: string; amount: number; description?: string };
+
+      const { senderTx } = await walletService.transfer(
+        validation.payload.userId,
+        toWalletId,
+        amount,
+        description
+      );
+
+      return {
+        message: 'Transfer completed successfully',
+        transaction: senderTx,
+      };
+    } catch (error) {
+      console.error('Wallet transfer error:', error);
+
+      if (error instanceof Error) {
+        if (error.message.includes('Insufficient balance')) {
+          set.status = 400;
+          return {
+            error: { code: 'INSUFFICIENT_BALANCE', message: error.message },
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+          };
+        }
+        if (error.message.includes('not found')) {
+          set.status = 404;
+          return {
+            error: { code: 'WALLET_NOT_FOUND', message: error.message },
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+          };
+        }
+        if (error.message.includes('Cannot transfer to your own')) {
+          set.status = 400;
+          return {
+            error: { code: 'SELF_TRANSFER', message: error.message },
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+          };
+        }
+      }
+
+      return internalError(set, 'Failed to process transfer');
+    }
+  }, {
+    body: t.Object({
+      toWalletId: t.String({ minLength: 20, maxLength: 20 }),
+      amount: t.Number({ minimum: 0.01, maximum: 999999.99 }),
+      description: t.Optional(t.String({ maxLength: 255 })),
+    }),
   })
 
   // Get wallet transaction history

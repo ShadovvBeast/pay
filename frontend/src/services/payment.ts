@@ -152,6 +152,7 @@ class PaymentService {
       method: 'POST',
       headers: this.getAuthHeaders(),
       credentials: 'include',
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
