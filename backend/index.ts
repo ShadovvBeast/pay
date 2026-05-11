@@ -12,12 +12,16 @@ import { docsController } from './controllers/docs';
 import { docsLegacyController } from './controllers/docsLegacy';
 import { walletController } from './controllers/wallet';
 import { providerRegistry } from './services/providerRegistry';
+import { currencyConverter } from './services/currencyConverter';
 
 // Initialize database before starting server
 async function startServer() {
   try {
     // Initialize database connection and run migrations
     await db.initialize();
+
+    // Initialize currency converter (loads rates from DB, starts 10-min refresh)
+    await currencyConverter.initialize();
     
     console.log('CORS Configuration:', {
       origin: config.cors.origin,
@@ -142,6 +146,9 @@ async function startServer() {
           countries: providerRegistry.getSupportedCountries(),
         };
       })
+      .get('/rates', async () => {
+        return await currencyConverter.getAllRates();
+      })
       .use(authController)
       .use(paymentController)
       .use(apiKeyController)
@@ -156,12 +163,14 @@ async function startServer() {
     // Graceful shutdown
     process.on('SIGINT', async () => {
       console.log('Shutting down gracefully...');
+      currencyConverter.stop();
       await db.close();
       process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
       console.log('Shutting down gracefully...');
+      currencyConverter.stop();
       await db.close();
       process.exit(0);
     });
