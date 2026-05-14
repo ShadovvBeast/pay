@@ -18,7 +18,7 @@ export const ApiKeyManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [newKey, setNewKey] = useState<ApiKeyWithSecret | null>(null);
-  const [form, setForm] = useState<CreateApiKeyRequest>({ name: '', permissions: [], expiresAt: undefined });
+  const [form, setForm] = useState<CreateApiKeyRequest>({ name: '', permissions: [], paymentMethod: 'card', expiresAt: undefined });
 
   useEffect(() => { loadKeys(); }, []);
   const loadKeys = async () => { setLoading(true); try { setKeys(await apiKeyService.getApiKeys()); } catch (e) { setError(e instanceof Error ? e.message : 'Failed'); } finally { setLoading(false); } };
@@ -37,7 +37,7 @@ export const ApiKeyManagement: React.FC = () => {
       let expiresAtISO: string | undefined;
       if (form.expiresAt) { const d = new Date(form.expiresAt); if (!isNaN(d.getTime())) expiresAtISO = d.toISOString(); }
       const k = await apiKeyService.createApiKey({ ...form, expiresAt: expiresAtISO });
-      setNewKey(k); setForm({ name: '', permissions: [], expiresAt: undefined }); setShowForm(false); await loadKeys();
+      setNewKey(k); setForm({ name: '', permissions: [], paymentMethod: 'card', expiresAt: undefined }); setShowForm(false); await loadKeys();
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed'); }
   };
 
@@ -72,6 +72,23 @@ export const ApiKeyManagement: React.FC = () => {
           <h4 className="text-lg font-semibold text-foreground mb-4">New API Key</h4>
           <form onSubmit={handleCreate} className="space-y-4">
             <div><label className="text-sm text-foreground block mb-1.5">Name</label><input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} className="input-field" placeholder="e.g. Production API" required /></div>
+            <div>
+              <label className="text-sm text-foreground block mb-2">Payment Method</label>
+              <p className="text-xs text-muted-foreground mb-3">Each API key can only process one type of payment. Choose which this key will handle.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setForm(p => ({ ...p, paymentMethod: 'card' }))} className={`p-4 rounded-xl border text-left transition-all ${form.paymentMethod === 'card' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}>
+                  <div className="text-lg mb-1">💳</div>
+                  <div className="font-medium text-foreground text-sm">Card / AllPay</div>
+                  <div className="text-xs text-muted-foreground">Credit cards, Apple Pay, Bit</div>
+                </button>
+                <button type="button" onClick={() => setForm(p => ({ ...p, paymentMethod: 'mobile_money' }))} className={`p-4 rounded-xl border text-left transition-all relative ${form.paymentMethod === 'mobile_money' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}>
+                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded-full">Coming Soon</span>
+                  <div className="text-lg mb-1">📱</div>
+                  <div className="font-medium text-foreground text-sm">Mobile Money</div>
+                  <div className="text-xs text-muted-foreground">MTN MoMo, Airtel, M-Pesa</div>
+                </button>
+              </div>
+            </div>
             <div><label className="text-sm text-foreground block mb-1.5">Expiration (optional)</label><input type="datetime-local" value={form.expiresAt || ''} onChange={e => setForm(p => ({ ...p, expiresAt: e.target.value || undefined }))} className="input-field" /></div>
             <div>
               <label className="text-sm text-foreground block mb-3">Permissions</label>
@@ -90,7 +107,7 @@ export const ApiKeyManagement: React.FC = () => {
             </div>
             <div className="flex gap-3 pt-2">
               <button type="submit" className="flex-1 btn-primary">Create</button>
-              <button type="button" onClick={() => { setShowForm(false); setForm({ name: '', permissions: [], expiresAt: undefined }); }} className="flex-1 btn-secondary">Cancel</button>
+              <button type="button" onClick={() => { setShowForm(false); setForm({ name: '', permissions: [], paymentMethod: 'card', expiresAt: undefined }); }} className="flex-1 btn-secondary">Cancel</button>
             </div>
           </form>
         </div>
@@ -105,7 +122,7 @@ export const ApiKeyManagement: React.FC = () => {
             {keys.map(k => (
               <div key={k.id} className="p-5">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2"><h5 className="font-medium text-foreground text-sm">{k.name}</h5><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${k.isActive ? 'text-primary bg-primary/10 border-primary/20' : 'text-muted-foreground bg-secondary border-border'}`}>{k.isActive ? 'Active' : 'Inactive'}</span></div>
+                  <div className="flex items-center gap-2"><h5 className="font-medium text-foreground text-sm">{k.name}</h5><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${k.isActive ? 'text-primary bg-primary/10 border-primary/20' : 'text-muted-foreground bg-secondary border-border'}`}>{k.isActive ? 'Active' : 'Inactive'}</span><span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-border text-muted-foreground bg-secondary">{k.paymentMethod === 'mobile_money' ? '📱 Mobile Money' : '💳 Card'}</span></div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleToggle(k.id, k.isActive)} className="text-muted-foreground hover:text-foreground">{k.isActive ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}</button>
                     <button onClick={() => handleDelete(k.id, k.name)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>

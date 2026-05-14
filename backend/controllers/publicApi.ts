@@ -38,6 +38,38 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
         };
         return errorResponse;
       }
+
+      // Enforce payment method restriction
+      const requestedMethod = paymentData.paymentMethod || 'card';
+      const keyMethod = authApiKey.paymentMethod || 'card';
+
+      if (keyMethod === 'card' && (requestedMethod === 'mobile_money' || requestedMethod === 'mtn_momo' || requestedMethod === 'airtel_money' || requestedMethod === 'mpesa')) {
+        set.status = 403;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'PAYMENT_METHOD_NOT_ALLOWED',
+            message: 'This API key is restricted to card payments only. Create a mobile_money key to process mobile money payments.',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
+
+      if (keyMethod === 'mobile_money' && (requestedMethod === 'card' || !requestedMethod)) {
+        set.status = 403;
+        const errorResponse: PublicErrorResponse = {
+          error: {
+            code: 'PAYMENT_METHOD_NOT_ALLOWED',
+            message: 'This API key is restricted to mobile money payments only. Create a card key to process card payments.',
+            type: 'authentication_error'
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        return errorResponse;
+      }
       
       // Get user details for merchant configuration
       const currentUser = await userRepository.findById(authApiKey.userId);

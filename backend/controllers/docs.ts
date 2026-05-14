@@ -206,6 +206,7 @@ There are two authentication methods:
           key: { type: 'string', description: 'Full API key (only returned on creation)' },
           prefix: { type: 'string', example: 'sb0_live_0b6b...' },
           permissions: { type: 'array', items: { $ref: '#/components/schemas/ApiKeyPermission' } },
+          paymentMethod: { type: 'string', enum: ['card', 'mobile_money'], description: 'Payment method this key can process' },
           isActive: { type: 'boolean' },
           lastUsedAt: { type: 'string', format: 'date-time', nullable: true },
           expiresAt: { type: 'string', format: 'date-time', nullable: true },
@@ -691,6 +692,7 @@ There are two authentication methods:
       post: {
         tags: ['API Keys'],
         summary: 'Create API key',
+        description: 'Create a new API key bound to a specific payment method. Each key can only process one type: card (AllPay) or mobile_money (MTN/Airtel/M-Pesa).',
         security: [{ jwtAuth: [] }],
         requestBody: {
           required: true,
@@ -702,6 +704,7 @@ There are two authentication methods:
                 properties: {
                   name: { type: 'string', minLength: 1, maxLength: 255 },
                   permissions: { type: 'array', items: { $ref: '#/components/schemas/ApiKeyPermission' } },
+                  paymentMethod: { type: 'string', enum: ['card', 'mobile_money'], default: 'card', description: 'Payment method this key can process. card = AllPay (credit cards, Apple Pay, Bit). mobile_money = MTN MoMo, Airtel Money, M-Pesa.' },
                   expiresAt: { type: 'string', format: 'date-time', description: 'Optional expiration date (must be in the future)' },
                 },
               },
@@ -791,7 +794,7 @@ There are two authentication methods:
       post: {
         tags: ['Public API'],
         summary: 'Create payment',
-        description: 'Create a payment via the public API. Requires API key with `payments:create` permission.',
+        description: 'Create a payment via the public API. Requires API key with `payments:create` permission. The key paymentMethod determines which payment methods are allowed.',
         security: [{ apiKeyAuth: [] }],
         requestBody: {
           required: true,
@@ -832,6 +835,7 @@ There are two authentication methods:
           '201': { description: 'Payment created', content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicPaymentResponse' } } } },
           '400': { description: 'Invalid request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           '401': { description: 'Authentication failed', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '403': { description: 'Payment method not allowed for this API key', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           '502': { description: 'Payment provider unavailable', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },

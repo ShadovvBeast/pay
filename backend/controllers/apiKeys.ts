@@ -151,6 +151,7 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
         userId: validation.payload.userId,
         name: requestData.name,
         permissions: requestData.permissions,
+        paymentMethod: (requestData as any).paymentMethod || 'card',
         expiresAt
       };
 
@@ -166,6 +167,7 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
         key: result.key, // Only returned on creation
         prefix: result.apiKey.prefix,
         permissions: result.apiKey.permissions,
+        paymentMethod: result.apiKey.paymentMethod,
         isActive: result.apiKey.isActive,
         lastUsedAt: result.apiKey.lastUsedAt,
         expiresAt: result.apiKey.expiresAt,
@@ -210,6 +212,7 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
           t.Literal('delete')
         ]))
       })),
+      paymentMethod: t.Optional(t.Union([t.Literal('card'), t.Literal('mobile_money')])),
       expiresAt: t.Optional(t.String())
     })
   })
@@ -257,6 +260,7 @@ export const apiKeyController = new Elysia({ prefix: '/api-keys' })
         name: key.name,
         prefix: key.prefix,
         permissions: key.permissions,
+        paymentMethod: key.paymentMethod,
         isActive: key.isActive,
         lastUsedAt: key.lastUsedAt,
         expiresAt: key.expiresAt,

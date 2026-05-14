@@ -51,8 +51,8 @@ class ApiKeyService {
       console.log('Key prefix:', prefix);
 
       const query = `
-        INSERT INTO api_keys (user_id, name, key_hash, prefix, permissions, expires_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO api_keys (user_id, name, key_hash, prefix, permissions, payment_method, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `;
 
@@ -62,6 +62,7 @@ class ApiKeyService {
         keyHash,
         prefix,
         JSON.stringify(data.permissions),
+        data.paymentMethod || 'card',
         data.expiresAt
       ];
 
@@ -69,6 +70,7 @@ class ApiKeyService {
         userId: data.userId,
         name: data.name,
         prefix,
+        paymentMethod: data.paymentMethod,
         permissionsCount: data.permissions.length,
         expiresAt: data.expiresAt
       });
@@ -143,6 +145,7 @@ class ApiKeyService {
         keyHash: apiKeyData.key_hash,
         prefix: apiKeyData.prefix,
         permissions: Array.isArray(apiKeyData.permissions) ? apiKeyData.permissions : JSON.parse(apiKeyData.permissions),
+        paymentMethod: apiKeyData.payment_method || 'card',
         isActive: apiKeyData.is_active,
         lastUsedAt: apiKeyData.last_used_at,
         expiresAt: apiKeyData.expires_at,
@@ -210,6 +213,7 @@ class ApiKeyService {
         keyHash: row.key_hash,
         prefix: row.prefix,
         permissions,
+        paymentMethod: row.payment_method || 'card',
         isActive: row.is_active,
         lastUsedAt: row.last_used_at,
         expiresAt: row.expires_at,

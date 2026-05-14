@@ -165,6 +165,8 @@ export interface AllPayApiError extends Error {
   response?: any;
 }
 
+export type ApiKeyPaymentMethod = 'card' | 'mobile_money';
+
 // API Key Management Types
 export interface ApiKey {
   id: string;
@@ -173,6 +175,7 @@ export interface ApiKey {
   keyHash: string;
   prefix: string; // First 8 chars for identification (e.g., "sb0_live_")
   permissions: ApiKeyPermission[];
+  paymentMethod: ApiKeyPaymentMethod;
   isActive: boolean;
   lastUsedAt?: Date;
   expiresAt?: Date;
@@ -184,6 +187,7 @@ export interface CreateApiKeyData {
   userId: string;
   name: string;
   permissions: ApiKeyPermission[];
+  paymentMethod: ApiKeyPaymentMethod;
   expiresAt?: Date;
 }
 
@@ -198,6 +202,7 @@ export interface ApiKeyResponse {
   key: string; // Only returned on creation
   prefix: string;
   permissions: ApiKeyPermission[];
+  paymentMethod: ApiKeyPaymentMethod;
   isActive: boolean;
   lastUsedAt?: Date;
   expiresAt?: Date;
@@ -209,6 +214,7 @@ export interface ApiKeyListResponse {
   name: string;
   prefix: string;
   permissions: ApiKeyPermission[];
+  paymentMethod: ApiKeyPaymentMethod;
   isActive: boolean;
   lastUsedAt?: Date;
   expiresAt?: Date;

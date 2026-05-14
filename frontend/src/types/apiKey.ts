@@ -1,3 +1,5 @@
+export type ApiKeyPaymentMethod = 'card' | 'mobile_money';
+
 export interface ApiKeyPermission {
   resource: 'payments' | 'transactions' | 'webhooks' | 'profile';
   actions: ('create' | 'read' | 'update' | 'delete')[];
@@ -8,6 +10,7 @@ export interface ApiKey {
   name: string;
   prefix: string;
   permissions: ApiKeyPermission[];
+  paymentMethod: ApiKeyPaymentMethod;
   isActive: boolean;
   lastUsedAt?: string;
   expiresAt?: string;
@@ -21,6 +24,7 @@ export interface ApiKeyWithSecret extends ApiKey {
 export interface CreateApiKeyRequest {
   name: string;
   permissions: ApiKeyPermission[];
+  paymentMethod: ApiKeyPaymentMethod;
   expiresAt?: string;
 }
 

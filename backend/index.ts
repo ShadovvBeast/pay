@@ -159,6 +159,13 @@ async function startServer() {
       .listen(config.server.port);
 
     console.log(`🦊 Elysia is running at http://localhost:${app.server?.port}`);
+
+    // Run stale transaction cleanup on startup and every 30 minutes
+    const { paymentService } = await import('./services/payment.js');
+    await paymentService.expireStaleTransactions();
+    setInterval(() => {
+      paymentService.expireStaleTransactions();
+    }, 30 * 60 * 1000); // Every 30 minutes
     
     // Graceful shutdown
     process.on('SIGINT', async () => {
