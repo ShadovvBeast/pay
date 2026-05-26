@@ -41,6 +41,14 @@ export const config = {
     passkey: process.env.MPESA_PASSKEY || '',
   },
 
+  // Polygon Crypto Wallet Configuration
+  polygon: {
+    rpcUrl: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    brokerAddress: process.env.BROKER_WALLET_ADDRESS || '',
+    brokerPrivateKey: process.env.BROKER_WALLET_PRIVATE_KEY || '',
+    walletEncryptionKey: process.env.WALLET_ENCRYPTION_KEY || '',
+  },
+
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production',

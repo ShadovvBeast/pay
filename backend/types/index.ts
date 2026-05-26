@@ -292,13 +292,43 @@ export interface PublicErrorResponse {
 }
 
 // Wallet Types
-export type WalletTransactionType = 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment' | 'transfer_in' | 'transfer_out';
+export type WalletTransactionType = 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment' | 'transfer_in' | 'transfer_out' | 'swap_in' | 'swap_out';
+
+export type AssetType = 'fiat' | 'crypto';
+
+export interface SupportedAsset {
+  code: string;
+  name: string;
+  symbol: string;
+  assetType: AssetType;
+  network: string;
+  decimals: number;
+  isSwappable: boolean;
+  isActive: boolean;
+  iconUrl?: string;
+}
+
+export interface WalletBalance {
+  id: string;
+  walletId: string;
+  assetCode: string;
+  balance: number;
+  depositAddress?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AssetPrice {
+  assetCode: string;
+  priceUsd: number;
+  updatedAt: Date;
+}
 
 export interface Wallet {
   id: string;
   walletId: string; // 20-character public wallet ID for transfers
   userId: string;
-  balance: number;
+  balance: number; // Legacy single balance (kept for backward compat)
   currency: string;
   createdAt: Date;
   updatedAt: Date;
@@ -310,6 +340,8 @@ export interface WalletTransaction {
   type: WalletTransactionType;
   amount: number;
   balanceAfter: number;
+  assetCode?: string;
+  network?: string;
   referenceType?: string;
   referenceId?: string;
   description?: string;

@@ -1,6 +1,6 @@
 import { db } from './database.js';
 import { currencyConverter } from './currencyConverter.js';
-import type { Wallet, WalletTransaction, WalletTransactionType } from '../types/index.js';
+import type { Wallet, WalletTransaction, WalletTransactionType, WalletBalance, SupportedAsset, AssetPrice } from '../types/index.js';
 
 /**
  * Generate a 20-character alphanumeric wallet ID.
@@ -331,6 +331,7 @@ class WalletService {
 
     const result = await db.query<WalletTransaction>(
       `SELECT id, wallet_id AS "walletId", type, amount, balance_after AS "balanceAfter",
+              asset_code AS "assetCode", network,
               reference_type AS "referenceType", reference_id AS "referenceId", description,
               created_at AS "createdAt"
        FROM wallet_transactions
@@ -347,6 +348,268 @@ class WalletService {
     }));
 
     return { transactions, total };
+  }
+
+  // ─── Multi-Asset Methods ─────────────────────────────────────────────────
+
+  /**
+   * Get all asset balances for a user's wallet.
+   */
+  async getAssetBalances(userId: string): Promise<WalletBalance[]> {
+    const wallet = await this.getOrCreateWallet(userId);
+
+    const result = await db.query<WalletBalance>(
+      `SELECT wb.id, wb.wallet_id AS "walletId", wb.asset_code AS "assetCode",
+              wb.balance, wb.deposit_address AS "depositAddress",
+              wb.created_at AS "createdAt", wb.updated_at AS "updatedAt"
+       FROM wallet_balances wb
+       WHERE wb.wallet_id = $1
+       ORDER BY wb.balance DESC`,
+      [wallet.id]
+    );
+
+    return result.rows.map(row => ({
+      ...row,
+      balance: parseFloat(row.balance as any),
+    }));
+  }
+
+  /**
+   * Get or create a balance entry for a specific asset.
+   */
+  async getOrCreateAssetBalance(walletId: string, assetCode: string): Promise<WalletBalance> {
+    const existing = await db.queryOne<WalletBalance>(
+      `SELECT id, wallet_id AS "walletId", asset_code AS "assetCode", balance,
+              deposit_address AS "depositAddress", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM wallet_balances WHERE wallet_id = $1 AND asset_code = $2`,
+      [walletId, assetCode]
+    );
+
+    if (existing) {
+      existing.balance = parseFloat(existing.balance as any);
+      return existing;
+    }
+
+    const created = await db.queryOne<WalletBalance>(
+      `INSERT INTO wallet_balances (wallet_id, asset_code) VALUES ($1, $2)
+       RETURNING id, wallet_id AS "walletId", asset_code AS "assetCode", balance,
+                 deposit_address AS "depositAddress", created_at AS "createdAt", updated_at AS "updatedAt"`,
+      [walletId, assetCode]
+    );
+
+    if (!created) throw new Error('Failed to create asset balance');
+    created.balance = parseFloat(created.balance as any);
+    return created;
+  }
+
+  /**
+   * Credit a specific asset in the wallet.
+   */
+  async creditAsset(
+    userId: string,
+    assetCode: string,
+    amount: number,
+    referenceType?: string,
+    referenceId?: string,
+    description?: string
+  ): Promise<WalletTransaction> {
+    if (amount <= 0) throw new Error('Credit amount must be positive');
+
+    const wallet = await this.getOrCreateWallet(userId);
+
+    return await db.transaction(async (client) => {
+      // Lock or create the asset balance row
+      let balRow = await client.query(
+        `SELECT id, balance FROM wallet_balances WHERE wallet_id = $1 AND asset_code = $2 FOR UPDATE`,
+        [wallet.id, assetCode]
+      );
+
+      let currentBalance: number;
+      if (balRow.rows.length === 0) {
+        const ins = await client.query(
+          `INSERT INTO wallet_balances (wallet_id, asset_code) VALUES ($1, $2) RETURNING balance`,
+          [wallet.id, assetCode]
+        );
+        currentBalance = 0;
+      } else {
+        currentBalance = parseFloat(balRow.rows[0].balance);
+      }
+
+      const newBalance = currentBalance + amount;
+
+      await client.query(
+        `UPDATE wallet_balances SET balance = $1, updated_at = NOW() WHERE wallet_id = $2 AND asset_code = $3`,
+        [newBalance, wallet.id, assetCode]
+      );
+
+      // Also update legacy wallets.balance for FIAT_CARD (backward compat)
+      if (assetCode === 'FIAT_CARD') {
+        await client.query(`UPDATE wallets SET balance = $1, updated_at = NOW() WHERE id = $2`, [newBalance, wallet.id]);
+      }
+
+      const txResult = await client.query(
+        `INSERT INTO wallet_transactions (wallet_id, type, amount, balance_after, asset_code, reference_type, reference_id, description)
+         VALUES ($1, 'deposit', $2, $3, $4, $5, $6, $7)
+         RETURNING id, wallet_id AS "walletId", type, amount, balance_after AS "balanceAfter",
+                   asset_code AS "assetCode", reference_type AS "referenceType", reference_id AS "referenceId",
+                   description, created_at AS "createdAt"`,
+        [wallet.id, amount, newBalance, assetCode, referenceType || null, referenceId || null, description || null]
+      );
+
+      const tx = txResult.rows[0] as WalletTransaction;
+      tx.amount = parseFloat(tx.amount as any);
+      tx.balanceAfter = parseFloat(tx.balanceAfter as any);
+      return tx;
+    });
+  }
+
+  /**
+   * Swap between two crypto assets at market rate.
+   * Only crypto assets marked as is_swappable can be swapped.
+   */
+  async swapAssets(
+    userId: string,
+    fromAsset: string,
+    toAsset: string,
+    amount: number
+  ): Promise<{ fromTx: WalletTransaction; toTx: WalletTransaction; rate: number }> {
+    if (amount <= 0) throw new Error('Swap amount must be positive');
+    if (fromAsset === toAsset) throw new Error('Cannot swap an asset with itself');
+
+    // Verify both assets are swappable
+    const fromInfo = await db.queryOne<{ is_swappable: boolean; asset_type: string }>(
+      `SELECT is_swappable, asset_type FROM supported_assets WHERE code = $1`, [fromAsset]
+    );
+    const toInfo = await db.queryOne<{ is_swappable: boolean; asset_type: string }>(
+      `SELECT is_swappable, asset_type FROM supported_assets WHERE code = $1`, [toAsset]
+    );
+
+    if (!fromInfo || !toInfo) throw new Error('One or both assets are not supported');
+    if (!fromInfo.is_swappable) throw new Error(`${fromAsset} cannot be swapped`);
+    if (!toInfo.is_swappable) throw new Error(`${toAsset} cannot be swapped`);
+
+    // Get prices for both assets
+    const fromPrice = await db.queryOne<{ price_usd: number }>(
+      `SELECT price_usd FROM asset_prices WHERE asset_code = $1`, [fromAsset]
+    );
+    const toPrice = await db.queryOne<{ price_usd: number }>(
+      `SELECT price_usd FROM asset_prices WHERE asset_code = $1`, [toAsset]
+    );
+
+    if (!fromPrice || !toPrice) throw new Error('Price data not available for swap');
+
+    const fromPriceUsd = parseFloat(fromPrice.price_usd as any);
+    const toPriceUsd = parseFloat(toPrice.price_usd as any);
+    const rate = fromPriceUsd / toPriceUsd;
+    const toAmount = amount * rate;
+
+    const wallet = await this.getOrCreateWallet(userId);
+
+    return await db.transaction(async (client) => {
+      // Lock from-asset balance
+      const fromBal = await client.query(
+        `SELECT balance FROM wallet_balances WHERE wallet_id = $1 AND asset_code = $2 FOR UPDATE`,
+        [wallet.id, fromAsset]
+      );
+
+      if (fromBal.rows.length === 0) throw new Error(`No ${fromAsset} balance found`);
+      const currentFrom = parseFloat(fromBal.rows[0].balance);
+      if (currentFrom < amount) throw new Error(`Insufficient ${fromAsset} balance. Have: ${currentFrom}, need: ${amount}`);
+
+      // Lock or create to-asset balance
+      let toBal = await client.query(
+        `SELECT balance FROM wallet_balances WHERE wallet_id = $1 AND asset_code = $2 FOR UPDATE`,
+        [wallet.id, toAsset]
+      );
+      let currentTo = 0;
+      if (toBal.rows.length === 0) {
+        await client.query(`INSERT INTO wallet_balances (wallet_id, asset_code) VALUES ($1, $2)`, [wallet.id, toAsset]);
+      } else {
+        currentTo = parseFloat(toBal.rows[0].balance);
+      }
+
+      const newFrom = currentFrom - amount;
+      const newTo = currentTo + toAmount;
+
+      // Update balances
+      await client.query(`UPDATE wallet_balances SET balance = $1, updated_at = NOW() WHERE wallet_id = $2 AND asset_code = $3`, [newFrom, wallet.id, fromAsset]);
+      await client.query(`UPDATE wallet_balances SET balance = $1, updated_at = NOW() WHERE wallet_id = $2 AND asset_code = $3`, [newTo, wallet.id, toAsset]);
+
+      // Record swap_out
+      const fromTxResult = await client.query(
+        `INSERT INTO wallet_transactions (wallet_id, type, amount, balance_after, asset_code, description)
+         VALUES ($1, 'swap_out', $2, $3, $4, $5)
+         RETURNING id, wallet_id AS "walletId", type, amount, balance_after AS "balanceAfter", asset_code AS "assetCode", description, created_at AS "createdAt"`,
+        [wallet.id, amount, newFrom, fromAsset, `Swapped to ${toAsset} at rate ${rate.toFixed(8)}`]
+      );
+
+      // Record swap_in
+      const toTxResult = await client.query(
+        `INSERT INTO wallet_transactions (wallet_id, type, amount, balance_after, asset_code, description)
+         VALUES ($1, 'swap_in', $2, $3, $4, $5)
+         RETURNING id, wallet_id AS "walletId", type, amount, balance_after AS "balanceAfter", asset_code AS "assetCode", description, created_at AS "createdAt"`,
+        [wallet.id, toAmount, newTo, toAsset, `Swapped from ${fromAsset} at rate ${rate.toFixed(8)}`]
+      );
+
+      const fromTx = fromTxResult.rows[0] as WalletTransaction;
+      fromTx.amount = parseFloat(fromTx.amount as any);
+      fromTx.balanceAfter = parseFloat(fromTx.balanceAfter as any);
+
+      const toTx = toTxResult.rows[0] as WalletTransaction;
+      toTx.amount = parseFloat(toTx.amount as any);
+      toTx.balanceAfter = parseFloat(toTx.balanceAfter as any);
+
+      return { fromTx, toTx, rate };
+    });
+  }
+
+  /**
+   * Get all supported assets.
+   */
+  async getSupportedAssets(): Promise<SupportedAsset[]> {
+    const result = await db.query<any>(
+      `SELECT code, name, symbol, asset_type AS "assetType", network, decimals,
+              is_swappable AS "isSwappable", is_active AS "isActive", icon_url AS "iconUrl"
+       FROM supported_assets WHERE is_active = TRUE ORDER BY asset_type, code`
+    );
+    return result.rows;
+  }
+
+  /**
+   * Get current asset prices (USD-denominated).
+   */
+  async getAssetPrices(): Promise<AssetPrice[]> {
+    const result = await db.query<any>(
+      `SELECT asset_code AS "assetCode", price_usd AS "priceUsd", updated_at AS "updatedAt"
+       FROM asset_prices`
+    );
+    return result.rows.map((r: any) => ({ ...r, priceUsd: parseFloat(r.priceUsd) }));
+  }
+
+  /**
+   * Get total portfolio value in USD for a user.
+   */
+  async getPortfolioValue(userId: string): Promise<{ totalUsd: number; assets: Array<{ assetCode: string; balance: number; valueUsd: number }> }> {
+    const wallet = await this.getOrCreateWallet(userId);
+
+    const result = await db.query<any>(
+      `SELECT wb.asset_code AS "assetCode", wb.balance, COALESCE(ap.price_usd, 1) AS "priceUsd"
+       FROM wallet_balances wb
+       LEFT JOIN asset_prices ap ON ap.asset_code = wb.asset_code
+       WHERE wb.wallet_id = $1 AND wb.balance > 0`,
+      [wallet.id]
+    );
+
+    let totalUsd = 0;
+    const assets = result.rows.map((row: any) => {
+      const balance = parseFloat(row.balance);
+      const priceUsd = parseFloat(row.priceUsd);
+      const valueUsd = balance * priceUsd;
+      totalUsd += valueUsd;
+      return { assetCode: row.assetCode, balance, valueUsd: Math.round(valueUsd * 100) / 100 };
+    });
+
+    return { totalUsd: Math.round(totalUsd * 100) / 100, assets };
   }
 }
 

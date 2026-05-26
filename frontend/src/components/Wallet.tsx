@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { walletService, WalletTransaction, WalletLookupResult } from '../services/walletService';
+import { walletService, WalletTransaction, WalletLookupResult, AssetBalance } from '../services/walletService';
 import { useAuth } from '../hooks/useAuth';
 import {
   Wallet as WalletIcon,
@@ -13,6 +13,7 @@ import {
   Loader2,
   Copy,
   Check,
+  Repeat,
 } from 'lucide-react';
 
 const SYM: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€', UGX: 'USh' };
@@ -24,6 +25,8 @@ const TYPE_META: Record<string, { label: string; color: string; icon: typeof Arr
   adjustment:   { label: 'Adjustment',    color: 'text-blue-400',    icon: RefreshCw },
   transfer_in:  { label: 'Received',      color: 'text-emerald-400', icon: ArrowDownLeft },
   transfer_out: { label: 'Sent',          color: 'text-orange-400',  icon: Send },
+  swap_in:      { label: 'Swap In',       color: 'text-emerald-400', icon: Repeat },
+  swap_out:     { label: 'Swap Out',      color: 'text-orange-400',  icon: Repeat },
 };
 
 const PAGE_SIZE = 10;
@@ -38,6 +41,11 @@ export const Wallet: React.FC = () => {
   const [walletId, setWalletId] = useState<string>('');
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  // Multi-asset
+  const [assets, setAssets] = useState<AssetBalance[]>([]);
+  const [totalValueUsd, setTotalValueUsd] = useState<number>(0);
+  const [assetsLoading, setAssetsLoading] = useState(true);
 
   // Transactions
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -78,6 +86,19 @@ export const Wallet: React.FC = () => {
     }
   }, []);
 
+  const fetchAssets = useCallback(async () => {
+    try {
+      setAssetsLoading(true);
+      const data = await walletService.getAssets();
+      setAssets(data.balances);
+      setTotalValueUsd(data.totalValueUsd);
+    } catch (e) {
+      console.error('Failed to load assets:', e);
+    } finally {
+      setAssetsLoading(false);
+    }
+  }, []);
+
   const fetchTransactions = useCallback(async () => {
     try {
       setTxLoading(true);
@@ -91,7 +112,7 @@ export const Wallet: React.FC = () => {
     }
   }, [page]);
 
-  useEffect(() => { fetchBalance(); }, [fetchBalance]);
+  useEffect(() => { fetchBalance(); fetchAssets(); }, [fetchBalance, fetchAssets]);
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
   const handleWithdraw = async (e: React.FormEvent) => {
@@ -199,11 +220,13 @@ export const Wallet: React.FC = () => {
               <Loader2 className="h-6 w-6 text-primary animate-spin" />
             </div>
           ) : (
-            <p className="text-4xl font-display font-bold text-card-foreground">
-              {sym}{fmt(balance ?? 0)}
-            </p>
+            <>
+              <p className="text-4xl font-display font-bold text-card-foreground">
+                ${fmt(totalValueUsd)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Total Portfolio Value (USD)</p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground mt-1">{currency}</p>
 
           {/* Wallet ID */}
           {walletId && (
@@ -230,7 +253,7 @@ export const Wallet: React.FC = () => {
               <ArrowUpRight className="h-4 w-4" /> Withdraw
             </button>
             <button
-              onClick={() => { fetchBalance(); fetchTransactions(); }}
+              onClick={() => { fetchBalance(); fetchTransactions(); fetchAssets(); }}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
             >
               <RefreshCw className="h-4 w-4" />
@@ -401,6 +424,56 @@ export const Wallet: React.FC = () => {
         </div>
       )}
 
+      {/* ── Asset Balances ────────────────────────────────────────── */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="font-semibold text-card-foreground">Assets</h3>
+          <button
+            onClick={async () => {
+              try {
+                setError('');
+                const data = await walletService.getDepositAddress();
+                setSuccess(`Your Polygon deposit address: ${data.address}`);
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Crypto not available yet');
+              }
+            }}
+            className="text-xs text-primary hover:underline"
+          >
+            Deposit Crypto
+          </button>
+        </div>
+        {assetsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 text-primary animate-spin" />
+          </div>
+        ) : assets.length === 0 ? (
+          <div className="text-center py-8 px-4">
+            <p className="text-muted-foreground text-sm">No assets yet. Completed payments will appear here.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {assets.map((asset) => (
+              <li key={asset.assetCode} className="px-5 py-3.5 flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${asset.assetType === 'crypto' ? 'bg-purple-500/10' : 'bg-emerald-500/10'}`}>
+                  {asset.assetCode.startsWith('BTC') ? '₿' : asset.assetCode.includes('USDT') ? '₮' : asset.assetCode.includes('USDC') ? '💲' : asset.assetCode.includes('MATIC') ? '⬡' : asset.assetCode === 'FIAT_CARD' ? '💳' : '📱'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-card-foreground">{asset.name}</p>
+                  <p className="text-xs text-muted-foreground">{asset.network}{asset.isSwappable ? ' · Swappable' : ''}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-card-foreground">
+                    {asset.assetCode.startsWith('BTC') ? asset.balance.toFixed(8) : asset.balance.toFixed(asset.assetType === 'crypto' ? 4 : 2)} {asset.symbol}
+                  </p>
+                  <p className="text-xs text-muted-foreground">${fmt(asset.valueUsd)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* ── Transaction History ────────────────────────────────── */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
@@ -424,7 +497,7 @@ export const Wallet: React.FC = () => {
               {transactions.map((tx) => {
                 const meta = TYPE_META[tx.type] || TYPE_META.adjustment;
                 const Icon = meta.icon;
-                const isCredit = tx.type === 'deposit' || tx.type === 'transfer_in';
+                const isCredit = tx.type === 'deposit' || tx.type === 'transfer_in' || tx.type === 'swap_in';
                 return (
                   <li key={tx.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-secondary/30 transition-colors">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCredit ? 'bg-emerald-500/10' : 'bg-orange-500/10'}`}>
