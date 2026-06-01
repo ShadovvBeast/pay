@@ -207,12 +207,12 @@ class WalletService {
 
   // ─── Crypto Methods ──────────────────────────────────────────────────
 
-  async getDepositAddress(): Promise<{ address: string; network: string; message: string }> {
+  async getDepositAddress(network: 'polygon' | 'plasma' = 'polygon'): Promise<{ address: string; network: string; networkName: string; supportedAssets: string; note: string; message: string }> {
     const response = await fetch(`${API_BASE_URL}/wallet/deposit`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       credentials: 'include',
-      body: JSON.stringify({}),
+      body: JSON.stringify({ network }),
     });
 
     if (!response.ok) {
@@ -265,12 +265,12 @@ class WalletService {
     return await response.json();
   }
 
-  async sendCrypto(asset: string, toAddress: string, amount: number): Promise<{ txHash: string; from: string; to: string; amount: string; asset: string; status: string }> {
+  async sendCrypto(asset: string, toAddress: string, amount: number, network: 'polygon' | 'plasma' = 'polygon'): Promise<{ txHash: string; from: string; to: string; amount: string; asset: string; status: string; network: string }> {
     const response = await fetch(`${API_BASE_URL}/wallet/send-crypto`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ asset, toAddress, amount }),
+      body: JSON.stringify({ asset, toAddress, amount, network }),
     });
 
     if (!response.ok) {

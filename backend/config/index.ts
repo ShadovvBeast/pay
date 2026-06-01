@@ -49,6 +49,11 @@ export const config = {
     walletEncryptionKey: process.env.WALLET_ENCRYPTION_KEY || '',
   },
 
+  // Plasma Network (Tether's L1 for zero-fee USDT)
+  plasma: {
+    rpcUrl: process.env.PLASMA_RPC_URL || 'https://rpc.plasma.io/v1',
+  },
+
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production',

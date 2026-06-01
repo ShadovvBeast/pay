@@ -28,6 +28,10 @@ const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const POLYGON_USDT_ADDRESS = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
 const POLYGON_USDC_ADDRESS = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
 
+// Plasma (XPL) — Tether's L1 for zero-fee USDT
+// EVM-compatible, uses USDT as native stablecoin
+const PLASMA_USDT_ADDRESS = '0x0000000000000000000000000000000000000001'; // Native USDT on Plasma (placeholder — update when mainnet contract confirmed)
+
 // ERC-20 ABI (minimal — just balanceOf and transfer)
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
@@ -35,6 +39,20 @@ const ERC20_ABI = [
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
 ];
+
+// Network configurations
+const NETWORKS: Record<string, { rpcUrl: string; chainId: number; name: string }> = {
+  polygon: {
+    rpcUrl: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    chainId: 137,
+    name: 'Polygon',
+  },
+  plasma: {
+    rpcUrl: process.env.PLASMA_RPC_URL || 'https://rpc.plasma.io/v1',
+    chainId: 11011, // Plasma mainnet chain ID
+    name: 'Plasma',
+  },
+};
 
 export interface CryptoWalletInfo {
   address: string;
@@ -98,13 +116,11 @@ function decrypt(encryptedText: string): string {
 // ─── Wallet Service ──────────────────────────────────────────────────────────
 
 class CryptoWalletService {
-  private rpcUrl: string;
   private brokerPrivateKey: string;
   private brokerAddress: string;
   private ethersModule: any = null;
 
   constructor() {
-    this.rpcUrl = process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com';
     this.brokerPrivateKey = process.env.BROKER_WALLET_PRIVATE_KEY || '';
     this.brokerAddress = process.env.BROKER_WALLET_ADDRESS || '';
   }
@@ -120,18 +136,19 @@ class CryptoWalletService {
   }
 
   /**
-   * Get a JSON-RPC provider for Polygon
+   * Get a JSON-RPC provider for a specific network
    */
-  private async getProvider() {
+  private async getProvider(network: string = 'polygon') {
     const { JsonRpcProvider } = await this.getEthers();
-    return new JsonRpcProvider(this.rpcUrl);
+    const config = NETWORKS[network] || NETWORKS.polygon;
+    return new JsonRpcProvider(config.rpcUrl);
   }
 
   /**
    * Check if the crypto wallet system is configured
    */
   isAvailable(): boolean {
-    return !!(this.rpcUrl && this.brokerPrivateKey && this.brokerAddress);
+    return !!(NETWORKS.polygon.rpcUrl && this.brokerPrivateKey && this.brokerAddress);
   }
 
   // ─── Wallet Generation ───────────────────────────────────────────────────
@@ -210,18 +227,20 @@ class CryptoWalletService {
   // ─── Balance Queries ─────────────────────────────────────────────────────
 
   /**
-   * Get all crypto balances for a user's wallet.
+   * Get all crypto balances for a user's wallet (across all networks).
    */
   async getBalances(userId: string): Promise<CryptoBalance[]> {
     const walletInfo = await this.getOrCreateWallet(userId);
     const { Contract, formatUnits } = await this.getEthers();
-    const provider = await this.getProvider();
 
     const balances: CryptoBalance[] = [];
 
+    // ── Polygon balances ──────────────────────────────────────────
     try {
+      const polygonProvider = await this.getProvider('polygon');
+
       // MATIC balance (native)
-      const maticBalance = await provider.getBalance(walletInfo.address);
+      const maticBalance = await polygonProvider.getBalance(walletInfo.address);
       balances.push({
         asset: 'MATIC',
         symbol: 'MATIC',
@@ -229,31 +248,48 @@ class CryptoWalletService {
         balanceFormatted: parseFloat(formatUnits(maticBalance, 18)),
       });
 
-      // USDT balance
-      const usdtContract = new Contract(POLYGON_USDT_ADDRESS, ERC20_ABI, provider);
+      // USDT on Polygon
+      const usdtContract = new Contract(POLYGON_USDT_ADDRESS, ERC20_ABI, polygonProvider);
       const usdtBalance = await usdtContract.balanceOf(walletInfo.address);
       const usdtDecimals = await usdtContract.decimals();
       balances.push({
-        asset: 'USDT',
+        asset: 'USDT_POLYGON',
         symbol: 'USDT',
         balance: usdtBalance.toString(),
         balanceFormatted: parseFloat(formatUnits(usdtBalance, usdtDecimals)),
         contractAddress: POLYGON_USDT_ADDRESS,
       });
 
-      // USDC balance
-      const usdcContract = new Contract(POLYGON_USDC_ADDRESS, ERC20_ABI, provider);
+      // USDC on Polygon
+      const usdcContract = new Contract(POLYGON_USDC_ADDRESS, ERC20_ABI, polygonProvider);
       const usdcBalance = await usdcContract.balanceOf(walletInfo.address);
       const usdcDecimals = await usdcContract.decimals();
       balances.push({
-        asset: 'USDC',
+        asset: 'USDC_POLYGON',
         symbol: 'USDC',
         balance: usdcBalance.toString(),
         balanceFormatted: parseFloat(formatUnits(usdcBalance, usdcDecimals)),
         contractAddress: POLYGON_USDC_ADDRESS,
       });
     } catch (error) {
-      console.error('Error fetching crypto balances:', error);
+      console.error('Error fetching Polygon balances:', error);
+    }
+
+    // ── Plasma balances (USDT native, zero-fee) ───────────────────
+    try {
+      const plasmaProvider = await this.getProvider('plasma');
+
+      // On Plasma, USDT is the native/primary token — check native balance
+      const plasmaBalance = await plasmaProvider.getBalance(walletInfo.address);
+      balances.push({
+        asset: 'USDT_PLASMA',
+        symbol: 'USDT',
+        balance: plasmaBalance.toString(),
+        balanceFormatted: parseFloat(formatUnits(plasmaBalance, 18)),
+      });
+    } catch (error) {
+      // Plasma RPC might not be configured yet — that's fine
+      console.warn('Plasma balance check skipped (RPC not available):', error instanceof Error ? error.message : '');
     }
 
     return balances;
@@ -342,6 +378,7 @@ class CryptoWalletService {
 
   /**
    * Send crypto from a user's wallet to an external address (on-chain).
+   * Supports Polygon and Plasma networks.
    */
   async externalSend(
     userId: string,
@@ -350,7 +387,10 @@ class CryptoWalletService {
     amount: number
   ): Promise<TransferResult> {
     const { Wallet: EthWallet, Contract, parseUnits, formatUnits } = await this.getEthers();
-    const provider = await this.getProvider();
+
+    // Determine which network to use
+    const network = this.getNetworkForAsset(asset);
+    const provider = await this.getProvider(network);
 
     const privateKey = await this.getPrivateKey(userId);
     const signer = new EthWallet(privateKey, provider);
@@ -358,7 +398,15 @@ class CryptoWalletService {
     let txHash: string;
 
     if (asset === 'MATIC') {
-      // Native MATIC transfer
+      // Native MATIC transfer on Polygon
+      const tx = await signer.sendTransaction({
+        to: toAddress,
+        value: parseUnits(amount.toString(), 18),
+      });
+      txHash = tx.hash;
+      await tx.wait();
+    } else if (asset === 'USDT_PLASMA' || asset === 'XPL') {
+      // On Plasma, USDT is native — send as native transfer (zero fee)
       const tx = await signer.sendTransaction({
         to: toAddress,
         value: parseUnits(amount.toString(), 18),
@@ -366,7 +414,7 @@ class CryptoWalletService {
       txHash = tx.hash;
       await tx.wait();
     } else {
-      // ERC-20 token transfer
+      // ERC-20 token transfer (Polygon USDT/USDC)
       const contractAddress = this.getContractAddress(asset);
       if (!contractAddress) throw new Error(`Unsupported asset: ${asset}`);
 
@@ -549,8 +597,12 @@ class CryptoWalletService {
     const map: Record<string, string> = {
       'MATIC': 'MATIC_POLYGON',
       'USDT': 'USDT_POLYGON',
+      'USDT_POLYGON': 'USDT_POLYGON',
+      'USDT_PLASMA': 'USDT_PLASMA',
       'USDC': 'USDC_POLYGON',
+      'USDC_POLYGON': 'USDC_POLYGON',
       'BTC': 'BTC_MAINNET',
+      'XPL': 'USDT_PLASMA',
     };
     return map[asset.toUpperCase()] || `${asset.toUpperCase()}_POLYGON`;
   }
@@ -558,9 +610,24 @@ class CryptoWalletService {
   private getContractAddress(asset: string): string | null {
     const map: Record<string, string> = {
       'USDT': POLYGON_USDT_ADDRESS,
+      'USDT_POLYGON': POLYGON_USDT_ADDRESS,
       'USDC': POLYGON_USDC_ADDRESS,
+      'USDC_POLYGON': POLYGON_USDC_ADDRESS,
     };
     return map[asset.toUpperCase()] || null;
+  }
+
+  private getNetworkForAsset(asset: string): string {
+    const map: Record<string, string> = {
+      'MATIC': 'polygon',
+      'USDT': 'polygon',
+      'USDT_POLYGON': 'polygon',
+      'USDC': 'polygon',
+      'USDC_POLYGON': 'polygon',
+      'USDT_PLASMA': 'plasma',
+      'XPL': 'plasma',
+    };
+    return map[asset.toUpperCase()] || 'polygon';
   }
 }
 

@@ -428,20 +428,37 @@ export const Wallet: React.FC = () => {
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <h3 className="font-semibold text-card-foreground">Assets</h3>
-          <button
-            onClick={async () => {
-              try {
-                setError('');
-                const data = await walletService.getDepositAddress();
-                setSuccess(`Your Polygon deposit address: ${data.address}`);
-              } catch (e) {
-                setError(e instanceof Error ? e.message : 'Crypto not available yet');
-              }
-            }}
-            className="text-xs text-primary hover:underline"
-          >
-            Deposit Crypto
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  setError('');
+                  const data = await walletService.getDepositAddress('polygon');
+                  setSuccess(`Polygon address: ${data.address} — Send USDT, USDC, or MATIC here.`);
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : 'Crypto not available yet');
+                }
+              }}
+              className="text-xs text-primary hover:underline"
+            >
+              Deposit (Polygon)
+            </button>
+            <span className="text-xs text-muted-foreground">|</span>
+            <button
+              onClick={async () => {
+                try {
+                  setError('');
+                  const data = await walletService.getDepositAddress('plasma');
+                  setSuccess(`Plasma address: ${data.address} — Send USDT here (zero fees).`);
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : 'Crypto not available yet');
+                }
+              }}
+              className="text-xs text-primary hover:underline"
+            >
+              Deposit (Plasma)
+            </button>
+          </div>
         </div>
         {assetsLoading ? (
           <div className="flex items-center justify-center py-8">

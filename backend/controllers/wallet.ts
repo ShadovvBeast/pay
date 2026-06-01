@@ -315,7 +315,7 @@ export const walletController = new Elysia({ prefix: '/wallet' })
     }
   })
 
-  // Request a crypto deposit address
+  // Request a crypto deposit address (user chooses network)
   .post('/deposit', async ({ body, headers, cookie, set }) => {
     try {
       const token = extractToken(headers, cookie);
@@ -335,13 +335,26 @@ export const walletController = new Elysia({ prefix: '/wallet' })
         };
       }
 
-      // Get or create the user's Polygon wallet
+      const { network } = body as { network?: string };
+      const selectedNetwork = network || 'polygon';
+
+      // Get or create the user's wallet (same address works on all EVM networks)
       const walletInfo = await cryptoWalletService.getOrCreateWallet(validation.payload.userId);
+
+      const networkInfo: Record<string, { name: string; assets: string; note: string }> = {
+        polygon: { name: 'Polygon', assets: 'USDT, USDC, MATIC', note: 'Standard gas fees apply' },
+        plasma: { name: 'Plasma', assets: 'USDT', note: 'Zero-fee USDT transfers' },
+      };
+
+      const info = networkInfo[selectedNetwork] || networkInfo.polygon;
 
       return {
         address: walletInfo.address,
-        network: 'polygon',
-        message: 'Send USDT, USDC, or MATIC on Polygon network to this address.',
+        network: selectedNetwork,
+        networkName: info.name,
+        supportedAssets: info.assets,
+        note: info.note,
+        message: `Send ${info.assets} on ${info.name} network to this address.`,
         createdAt: walletInfo.createdAt,
       };
     } catch (error) {
@@ -350,7 +363,7 @@ export const walletController = new Elysia({ prefix: '/wallet' })
     }
   }, {
     body: t.Optional(t.Object({
-      assetCode: t.Optional(t.String()),
+      network: t.Optional(t.Union([t.Literal('polygon'), t.Literal('plasma')])),
     })),
   })
 
@@ -482,7 +495,7 @@ export const walletController = new Elysia({ prefix: '/wallet' })
     }),
   })
 
-  // Send crypto to external address (on-chain)
+  // Send crypto to external address (on-chain, user chooses network)
   .post('/send-crypto', async ({ body, headers, cookie, set }) => {
     try {
       const token = extractToken(headers, cookie);
@@ -491,7 +504,7 @@ export const walletController = new Elysia({ prefix: '/wallet' })
       const validation = await authService.validateAccessToken(token);
       if (!validation.isValid || !validation.payload) return unauthorized(set);
 
-      const { asset, toAddress, amount } = body as { asset: string; toAddress: string; amount: number };
+      const { asset, toAddress, amount, network } = body as { asset: string; toAddress: string; amount: number; network?: string };
       const { cryptoWalletService } = await import('../services/cryptoWallet.js');
 
       if (!cryptoWalletService.isAvailable()) {
@@ -499,14 +512,17 @@ export const walletController = new Elysia({ prefix: '/wallet' })
         return { error: { code: 'CRYPTO_NOT_CONFIGURED', message: 'Crypto not available' } };
       }
 
+      // If network is plasma and asset is USDT, use USDT_PLASMA
+      const resolvedAsset = (network === 'plasma' && asset.toUpperCase() === 'USDT') ? 'USDT_PLASMA' : asset;
+
       const result = await cryptoWalletService.externalSend(
         validation.payload.userId,
         toAddress,
-        asset,
+        resolvedAsset,
         amount
       );
 
-      return result;
+      return { ...result, network: network || 'polygon' };
     } catch (error) {
       console.error('Send crypto error:', error);
       if (error instanceof Error && error.message.includes('Insufficient')) {
@@ -520,6 +536,7 @@ export const walletController = new Elysia({ prefix: '/wallet' })
       asset: t.String({ minLength: 1 }),
       toAddress: t.String({ minLength: 42, maxLength: 42 }),
       amount: t.Number({ minimum: 0.00000001 }),
+      network: t.Optional(t.Union([t.Literal('polygon'), t.Literal('plasma')])),
     }),
   });
 
