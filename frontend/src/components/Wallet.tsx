@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import { walletService, WalletTransaction, WalletLookupResult, AssetBalance } from '../services/walletService';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -14,6 +15,7 @@ import {
   Copy,
   Check,
   Repeat,
+  QrCode,
 } from 'lucide-react';
 
 const SYM: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€', UGX: 'USh' };
@@ -69,10 +71,32 @@ export const Wallet: React.FC = () => {
   const [lookingUp, setLookingUp] = useState(false);
   const [confirmTransfer, setConfirmTransfer] = useState(false);
 
+  // QR Scanner
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const scanIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+
   // Messages
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // QR Code for receiving
+  const [showReceiveQR, setShowReceiveQR] = useState(false);
+  const [walletQrDataUrl, setWalletQrDataUrl] = useState<string>('');
+
+  // Generate QR code when wallet ID is available
+  useEffect(() => {
+    if (!walletId) return;
+    const qrPayload = JSON.stringify({ type: 'sb0pay_wallet', walletId, shopName: user?.shopName || '' });
+    QRCode.toDataURL(qrPayload, {
+      width: 280,
+      margin: 2,
+      color: { dark: '#e8f5e9', light: '#0a1a0f' },
+      errorCorrectionLevel: 'M',
+    }).then(setWalletQrDataUrl).catch(() => {});
+  }, [walletId, user?.shopName]);
   const fetchBalance = useCallback(async () => {
     try {
       setBalanceLoading(true);
@@ -202,6 +226,92 @@ export const Wallet: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ── QR Scanner logic ────────────────────────────────────────
+  const startScanner = async () => {
+    setScanError('');
+    setShowScanner(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      // Start scanning frames using a canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      scanIntervalRef.current = setInterval(async () => {
+        if (!videoRef.current || !ctx) return;
+        const video = videoRef.current;
+        if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Use BarcodeDetector API if available
+        if ('BarcodeDetector' in window) {
+          try {
+            const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+            const barcodes = await detector.detect(imageData);
+            if (barcodes.length > 0) {
+              handleScannedData(barcodes[0].rawValue);
+            }
+          } catch {}
+        }
+      }, 500);
+    } catch (err) {
+      setScanError('Camera access denied. Please allow camera permissions.');
+      setShowScanner(false);
+    }
+  };
+
+  const stopScanner = () => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setShowScanner(false);
+  };
+
+  const handleScannedData = (rawValue: string) => {
+    stopScanner();
+    try {
+      const data = JSON.parse(rawValue);
+      if (data.type === 'sb0pay_wallet' && data.walletId) {
+        setTransferWalletId(data.walletId);
+        setSuccess(`Scanned wallet: ${data.shopName || data.walletId}`);
+      } else {
+        // Maybe it's just a raw wallet ID
+        setScanError('Invalid QR code. Please scan an SB0 Pay wallet QR.');
+      }
+    } catch {
+      // Try treating it as a plain wallet ID (20 uppercase alphanumeric chars)
+      const cleaned = rawValue.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (cleaned.length === 20) {
+        setTransferWalletId(cleaned);
+        setSuccess(`Scanned wallet ID: ${cleaned}`);
+      } else {
+        setScanError('Could not read wallet ID from QR code.');
+      }
+    }
+  };
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -241,13 +351,21 @@ export const Wallet: React.FC = () => {
 
           <div className="flex items-center justify-center gap-3 mt-5">
             <button
-              onClick={() => { setShowTransfer(true); setShowWithdraw(false); setError(''); setSuccess(''); setConfirmTransfer(false); setLookupResult(null); }}
+              onClick={() => { setShowTransfer(true); setShowWithdraw(false); setShowReceiveQR(false); setError(''); setSuccess(''); setConfirmTransfer(false); setLookupResult(null); }}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-glow hover:bg-primary/90 transition-colors"
             >
               <Send className="h-4 w-4" /> Send
             </button>
             <button
-              onClick={() => { setShowWithdraw(!showWithdraw); setShowTransfer(false); setError(''); setSuccess(''); }}
+              onClick={() => { setShowReceiveQR(!showReceiveQR); setShowWithdraw(false); setShowTransfer(false); setError(''); setSuccess(''); }}
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border text-sm font-medium transition-colors ${
+                showReceiveQR ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+              }`}
+            >
+              <QrCode className="h-4 w-4" /> Receive
+            </button>
+            <button
+              onClick={() => { setShowWithdraw(!showWithdraw); setShowTransfer(false); setShowReceiveQR(false); setError(''); setSuccess(''); }}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
             >
               <ArrowUpRight className="h-4 w-4" /> Withdraw
@@ -261,6 +379,28 @@ export const Wallet: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Receive QR Code ─────────────────────────────────── */}
+      {showReceiveQR && walletQrDataUrl && (
+        <div className="bg-card rounded-2xl border border-border p-6 text-center animate-fade-up">
+          <h3 className="font-semibold text-card-foreground mb-1">Receive Assets</h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Share this QR code or Wallet ID. The sender can scan it to send any supported asset to your wallet.
+          </p>
+          <div className="inline-block p-3 rounded-2xl bg-background border border-border">
+            <img src={walletQrDataUrl} alt="Wallet QR Code" className="w-56 h-56 mx-auto rounded-xl" />
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <code className="text-sm font-mono bg-secondary/60 px-3 py-1 rounded text-foreground tracking-wider">{walletId}</code>
+            <button onClick={copyWalletId} className="text-muted-foreground hover:text-primary transition-colors">
+              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Supports: Card Balance, USDT (Polygon/Plasma), BTC, and more
+          </p>
+        </div>
+      )}
 
       {/* ── Messages ──────────────────────────────────────────── */}
       {success && (
@@ -330,18 +470,77 @@ export const Wallet: React.FC = () => {
         <div className="bg-card rounded-2xl border border-border p-5 space-y-4 animate-fade-up">
           <h3 className="font-semibold text-card-foreground">Send to SB0 Pay Wallet</h3>
 
-          {!confirmTransfer ? (
+          {/* Method choice: Scan or Enter ID */}
+          {!confirmTransfer && !transferWalletId && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">How would you like to identify the recipient?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => startScanner()}
+                  className="flex flex-col items-center gap-2 p-5 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <QrCode className="h-8 w-8 text-primary" />
+                  <span className="text-sm font-medium text-foreground">Scan QR</span>
+                  <span className="text-xs text-muted-foreground text-center">Use camera to scan</span>
+                </button>
+                <button
+                  onClick={() => setTransferWalletId(' ')}
+                  className="flex flex-col items-center gap-2 p-5 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <Copy className="h-8 w-8 text-primary" />
+                  <span className="text-sm font-medium text-foreground">Enter ID</span>
+                  <span className="text-xs text-muted-foreground text-center">Type wallet ID manually</span>
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowTransfer(false); }}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors mt-2"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Scanner active */}
+          {showScanner && (
+            <div className="space-y-3">
+              <div className="relative w-full aspect-square max-w-[280px] mx-auto rounded-2xl overflow-hidden border-2 border-primary/50 bg-black">
+                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-48 border-2 border-primary/70 rounded-xl" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">Point camera at the recipient's wallet QR code</p>
+              {scanError && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-center">
+                  <p className="text-xs text-red-400">{scanError}</p>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={stopScanner}
+                className="w-full px-4 py-2.5 rounded-full border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              >
+                Cancel Scan
+              </button>
+            </div>
+          )}
+
+          {/* Manual entry form (shown when transferWalletId has value) */}
+          {!confirmTransfer && transferWalletId && !showScanner && (
             <>
               <div>
                 <label className="text-sm text-foreground block mb-1.5">Recipient Wallet ID</label>
                 <input
                   type="text"
                   placeholder="e.g. 649UPYTKAGBJV8B38RC9"
-                  value={transferWalletId}
+                  value={transferWalletId.trim()}
                   onChange={(e) => setTransferWalletId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20))}
                   className="input-field font-mono tracking-wider"
                   maxLength={20}
                   disabled={lookingUp}
+                  autoFocus
                 />
                 <p className="text-xs text-muted-foreground mt-1">20-character wallet ID of the recipient</p>
               </div>
@@ -374,7 +573,7 @@ export const Wallet: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleLookupWallet}
-                  disabled={lookingUp || transferWalletId.length !== 20 || !transferAmount}
+                  disabled={lookingUp || transferWalletId.trim().length !== 20 || !transferAmount}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-glow hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -382,14 +581,17 @@ export const Wallet: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowTransfer(false); setLookupResult(null); setConfirmTransfer(false); }}
+                  onClick={() => { setTransferWalletId(''); setTransferAmount(''); setTransferDesc(''); }}
                   className="px-4 py-2.5 rounded-full border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
                 >
-                  Cancel
+                  Back
                 </button>
               </div>
             </>
-          ) : lookupResult && (
+          )}
+
+          {/* Confirmation */}
+          {confirmTransfer && lookupResult && (
             <>
               <div className="bg-secondary/40 rounded-xl p-4 space-y-2">
                 <p className="text-sm text-muted-foreground">Sending to:</p>
