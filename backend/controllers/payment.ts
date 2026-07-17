@@ -3,6 +3,7 @@ import { paymentService } from '../services/payment.js';
 import { authService } from '../services/auth.js';
 import { userRepository } from '../services/repository.js';
 import { providerRegistry } from '../services/providerRegistry.js';
+import { walletService } from '../services/wallet.js';
 import type { ErrorResponse } from '../types/index.js';
 import type { PaymentProvider } from '../types/mobileMoney.js';
 
@@ -869,6 +870,26 @@ export const paymentController = new Elysia({ prefix: '/payments' })
         requestId: crypto.randomUUID()
       };
       return errorResponse;
+    }
+  }, {
+    body: t.Any()
+  })
+
+  // ── Crypto Deposit Webhook (for Alchemy/QuickNode notifications) ─────────
+  .post('/webhook/crypto', async ({ body, headers, set }) => {
+    try {
+      const payload = body as Record<string, any>;
+      console.log('Crypto webhook received:', JSON.stringify(payload).substring(0, 200));
+
+      // This endpoint receives blockchain event notifications from Alchemy/QuickNode
+      // when tokens are transferred to one of our user wallet addresses.
+      // For now, log and acknowledge — full implementation pending RPC webhook setup.
+
+      return { success: true, message: 'Webhook received' };
+    } catch (error) {
+      console.error('Crypto webhook error:', error);
+      set.status = 500;
+      return { error: { code: 'INTERNAL_ERROR', message: 'Failed to process crypto webhook' } };
     }
   }, {
     body: t.Any()

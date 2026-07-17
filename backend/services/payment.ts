@@ -482,6 +482,16 @@ export class PaymentService {
         // Credit wallet when payment is completed
         if (newStatus === 'completed' && transaction.status !== 'completed') {
           try {
+            const assetCode = 'FIAT_CARD';
+            await walletService.creditAsset(
+              transaction.userId,
+              assetCode,
+              transaction.amount,
+              'payment',
+              transaction.id,
+              `Payment received – ${transaction.description || transaction.id}`
+            );
+            // Also credit legacy wallet for backward compat
             await walletService.credit(
               transaction.userId,
               transaction.amount,
@@ -490,7 +500,7 @@ export class PaymentService {
               `Payment received – ${transaction.description || transaction.id}`,
               transaction.currency
             );
-            console.log(`Wallet credited ${transaction.amount} ${transaction.currency} for user ${transaction.userId}`);
+            console.log(`Wallet credited ${transaction.amount} ${transaction.currency} (${assetCode}) for user ${transaction.userId}`);
           } catch (walletError) {
             console.error('Failed to credit wallet:', walletError);
             // Don't fail the webhook — the payment status is already updated
@@ -661,6 +671,16 @@ export class PaymentService {
         // Credit wallet when payment is completed
         if (newStatus === 'completed' && transaction.status !== 'completed') {
           try {
+            const assetCode = 'FIAT_MOMO';
+            await walletService.creditAsset(
+              transaction.userId,
+              assetCode,
+              transaction.amount,
+              'payment',
+              transaction.id,
+              `${callback.provider} payment received – ${transaction.id}`
+            );
+            // Also credit legacy wallet for backward compat
             await walletService.credit(
               transaction.userId,
               transaction.amount,
@@ -669,7 +689,7 @@ export class PaymentService {
               `${callback.provider} payment received – ${transaction.id}`,
               transaction.currency
             );
-            console.log(`Wallet credited ${transaction.amount} ${transaction.currency} for user ${transaction.userId} via ${callback.provider}`);
+            console.log(`Wallet credited ${transaction.amount} ${transaction.currency} (${assetCode}) for user ${transaction.userId} via ${callback.provider}`);
           } catch (walletError) {
             console.error('Failed to credit wallet:', walletError);
           }

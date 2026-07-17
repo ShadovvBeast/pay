@@ -14,28 +14,35 @@ export class DatabaseService {
     this.pool = new Pool({
       connectionString: config.database.url,
       // Connection pool settings
-      min: 2, // Minimum connections in pool
+      min: 0, // Don't keep minimum connections (Neon drops idle ones)
       max: 10, // Maximum connections in pool
-      idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-      connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection cannot be established (Neon cold starts can take a few seconds)
-      // acquireTimeoutMillis: 60000, // Return error after 60 seconds if connection cannot be acquired
+      idleTimeoutMillis: 10000, // Close idle connections after 10 seconds (before Neon kills them)
+      connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection cannot be established
+      allowExitOnIdle: true, // Allow the pool to close all connections when idle
     });
 
-    // Handle pool errors
+    // Handle pool errors — MUST be handled to prevent process crash
     this.pool.on('error', (err) => {
-      console.error('Unexpected error on idle client', err);
+      // Neon serverless pooler drops idle connections — this is expected
+      if (err.message?.includes('Connection terminated')) {
+        console.log('Database idle connection terminated (expected with Neon pooler)');
+      } else {
+        console.error('Unexpected database pool error:', err.message);
+      }
       this.isConnected = false;
     });
 
     // Handle pool connection
     this.pool.on('connect', () => {
-      console.log('Database connection established');
       this.isConnected = true;
     });
 
     // Handle pool removal
     this.pool.on('remove', () => {
-      console.log('Database connection removed from pool');
+      // Only log in development to reduce noise
+      if (config.server.nodeEnv === 'development') {
+        console.log('Database connection removed from pool');
+      }
     });
   }
 

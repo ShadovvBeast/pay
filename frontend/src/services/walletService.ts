@@ -8,12 +8,47 @@ export interface WalletBalance {
   walletId: string;
 }
 
+export interface AssetBalance {
+  assetCode: string;
+  name: string;
+  symbol: string;
+  assetType: 'fiat' | 'crypto';
+  network: string;
+  balance: number;
+  valueUsd: number;
+  isSwappable: boolean;
+  depositAddress?: string;
+}
+
+export interface WalletAssetsResponse {
+  totalValueUsd: number;
+  balances: AssetBalance[];
+  supportedAssets: Array<{
+    code: string;
+    name: string;
+    symbol: string;
+    assetType: string;
+    network: string;
+    decimals: number;
+    isSwappable: boolean;
+  }>;
+}
+
+export interface SwapResponse {
+  message: string;
+  rate: number;
+  from: { asset: string; amount: number };
+  to: { asset: string; amount: number };
+}
+
 export interface WalletTransaction {
   id: string;
   walletId: string;
-  type: 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment' | 'transfer_in' | 'transfer_out';
+  type: 'deposit' | 'withdrawal' | 'refund_debit' | 'adjustment' | 'transfer_in' | 'transfer_out' | 'swap_in' | 'swap_out';
   amount: number;
   balanceAfter: number;
+  assetCode?: string;
+  network?: string;
   referenceType?: string;
   referenceId?: string;
   description?: string;
@@ -124,6 +159,122 @@ class WalletService {
 
     if (!response.ok) {
       await handleApiError(response, 'Transfer failed');
+    }
+
+    return await response.json();
+  }
+
+  async getAssets(): Promise<WalletAssetsResponse> {
+    const response = await fetch(`${API_BASE_URL}/wallet/assets`, {
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to get asset balances');
+    }
+
+    return await response.json();
+  }
+
+  async swapAssets(fromAsset: string, toAsset: string, amount: number): Promise<SwapResponse> {
+    const response = await fetch(`${API_BASE_URL}/wallet/swap`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ fromAsset, toAsset, amount }),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Swap failed');
+    }
+
+    return await response.json();
+  }
+
+  async getSupportedAssets(): Promise<{ assets: any[]; prices: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/wallet/supported-assets`, {
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to get supported assets');
+    }
+
+    return await response.json();
+  }
+
+  // ─── Crypto Methods ──────────────────────────────────────────────────
+
+  async getDepositAddress(network: 'polygon' | 'plasma' = 'polygon'): Promise<{ address: string; network: string; networkName: string; supportedAssets: string; note: string; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/wallet/deposit`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ network }),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to get deposit address');
+    }
+
+    return await response.json();
+  }
+
+  async getCryptoBalances(): Promise<{ balances: Array<{ asset: string; symbol: string; balance: string; balanceFormatted: number }>; network: string }> {
+    const response = await fetch(`${API_BASE_URL}/wallet/crypto-balances`, {
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to get crypto balances');
+    }
+
+    return await response.json();
+  }
+
+  async buyCrypto(asset: string, fiatAmount: number): Promise<{ success: boolean; credited: number; asset: string; rate: number; fiatSpent: number }> {
+    const response = await fetch(`${API_BASE_URL}/wallet/buy-crypto`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ asset, fiatAmount }),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to buy crypto');
+    }
+
+    return await response.json();
+  }
+
+  async sellCrypto(asset: string, cryptoAmount: number): Promise<{ success: boolean; credited: number; currency: string; rate: number; cryptoSold: number }> {
+    const response = await fetch(`${API_BASE_URL}/wallet/sell-crypto`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ asset, cryptoAmount }),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to sell crypto');
+    }
+
+    return await response.json();
+  }
+
+  async sendCrypto(asset: string, toAddress: string, amount: number, network: 'polygon' | 'plasma' = 'polygon'): Promise<{ txHash: string; from: string; to: string; amount: string; asset: string; status: string; network: string }> {
+    const response = await fetch(`${API_BASE_URL}/wallet/send-crypto`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ asset, toAddress, amount, network }),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response, 'Failed to send crypto');
     }
 
     return await response.json();
