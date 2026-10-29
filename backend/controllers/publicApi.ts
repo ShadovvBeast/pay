@@ -77,7 +77,7 @@ export const galaxyController = new Elysia({ prefix: '/v1' })
         },
         successUrl: 'https://sb0s.com/galaxy/confirmed/',
         cancelUrl: 'https://sb0s.com/galaxy/#preorder',
-        webhookUrl: `${process.env.BACKEND_URL || 'https://sb0pay-678576192331.us-central1.run.app'}/payments/webhook`,
+        webhookUrl: `${process.env.BACKEND_URL || 'https://pay-be.sb0.tech'}/payments/webhook`,
         metadata: { product: 'sb0s-galaxy', plan: input.plan, country: input.country },
       }, key.id);
       set.status = 201;

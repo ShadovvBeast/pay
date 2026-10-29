@@ -32,7 +32,7 @@ steps:
       - '--set-secrets'
       - 'DATABASE_URL=SB0PAY_DATABASE_URL:latest,ALLPAY_API_KEY=ALLPAY_API_KEY:latest,ALLPAY_LOGIN=ALLPAY_LOGIN:latest,JWT_SECRET=JWT_SECRET:latest,JWT_REFRESH_SECRET=JWT_REFRESH_SECRET:latest'
       - '--set-env-vars'
-      - 'NODE_ENV=production,ALLPAY_API_URL=https://allpay.to/app/?show=getpayment&mode=api11,ALLPAY_SIGNATURE_FORMAT=legacy,BACKEND_URL=https://sb0pay-678576192331.us-central1.run.app,CORS_ORIGIN=https://pay.sb0.tech,FRONTEND_URL=https://pay.sb0.tech'
+      - 'NODE_ENV=production,ALLPAY_API_URL=https://allpay.to/app/?show=getpayment&mode=api11,ALLPAY_SIGNATURE_FORMAT=legacy,BACKEND_URL=https://pay-be.sb0.tech,CORS_ORIGIN=https://pay.sb0.tech,FRONTEND_URL=https://pay.sb0.tech'
 
 images:
   - 'gcr.io/$PROJECT_ID/sb0pay'

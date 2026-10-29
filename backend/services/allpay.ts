@@ -134,7 +134,7 @@ export class AllPayApiClient {
             items: items,
             currency: merchantConfig.currency || 'ILS',
             lang: this.mapLanguage(merchantConfig.language || 'he'),
-            webhook_url: options?.notificationsUrl || `${process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://sb0pay-678576192331.us-central1.run.app' : 'http://localhost:2894')}/payments/webhook`,
+            webhook_url: options?.notificationsUrl || `${process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://pay-be.sb0.tech' : 'http://localhost:2894')}/payments/webhook`,
             success_url: options?.successUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success`,
             backlink_url: options?.backlinkUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/failure`,
             expire: options?.expiresAt ? Math.floor(options.expiresAt.getTime() / 1000) : Math.floor(Date.now() / 1000) + 3600 // Default 1 hour

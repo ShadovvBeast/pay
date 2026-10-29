@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 
 const examples: Record<string, string> = {
-  curl: `curl -X POST https://api.sb0pay.com/api/v1/payments \\
+  curl: `curl -X POST https://pay-be.sb0.tech/api/v1/payments \\
   -H "Authorization: Bearer sb0_live_•••" \\
   -H "Content-Type: application/json" \\
   -d '{"amount":100.50,"currency":"ILS","description":"Order #12345"}'`,
-  javascript: `const res = await fetch('https://api.sb0pay.com/api/v1/payments', {
+  javascript: `const res = await fetch('https://pay-be.sb0.tech/api/v1/payments', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer sb0_live_•••', 'Content-Type': 'application/json' },
   body: JSON.stringify({ amount: 100.50, currency: 'ILS', description: 'Order #12345' })
 });
 const payment = await res.json();`,
   python: `import requests
-r = requests.post('https://api.sb0pay.com/api/v1/payments',
+r = requests.post('https://pay-be.sb0.tech/api/v1/payments',
   headers={'Authorization': 'Bearer sb0_live_•••', 'Content-Type': 'application/json'},
   json={'amount': 100.50, 'currency': 'ILS', 'description': 'Order #12345'})
 payment = r.json()`,

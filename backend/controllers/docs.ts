@@ -39,8 +39,8 @@ There are two authentication methods:
     },
   },
   servers: [
+    { url: 'https://pay-be.sb0.tech', description: 'Production' },
     { url: 'http://localhost:3001', description: 'Local development' },
-    { url: 'https://sb0pay-410118487888.us-central1.run.app', description: 'Production' },
   ],
   tags: [
     { name: 'Health', description: 'Server health and status' },

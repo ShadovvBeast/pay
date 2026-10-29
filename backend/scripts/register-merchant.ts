@@ -136,12 +136,12 @@ async function registerMerchant() {
     });
     console.log('');
     console.log('📚 API Documentation:');
-    console.log('  Base URL: https://sb0pay-678576192331.us-central1.run.app/api/v1');
-    console.log('  Docs: https://sb0pay-678576192331.us-central1.run.app/docs');
+    console.log('  Base URL: https://pay-be.sb0.tech/api/v1');
+    console.log('  Docs: https://pay-be.sb0.tech/docs');
     console.log('');
     console.log('Example Usage:');
     console.log('');
-    console.log('curl -X POST https://sb0pay-678576192331.us-central1.run.app/api/v1/payments \\');
+    console.log('curl -X POST https://pay-be.sb0.tech/api/v1/payments \\');
     console.log('  -H "Authorization: Bearer ' + key + '" \\');
     console.log('  -H "Content-Type: application/json" \\');
     console.log('  -d \'{');

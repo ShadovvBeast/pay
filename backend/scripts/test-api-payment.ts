@@ -5,7 +5,7 @@
  */
 
 const API_KEY = process.argv[2];
-const API_BASE_URL = process.env.API_BASE_URL || 'https://sb0pay-678576192331.us-central1.run.app/api/v1';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://pay-be.sb0.tech/api/v1';
 
 if (!API_KEY) {
   console.error('Usage: bun run backend/scripts/test-api-payment.ts <api-key>');

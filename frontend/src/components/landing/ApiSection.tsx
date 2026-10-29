@@ -1,11 +1,10 @@
 import { Terminal, Key, Webhook, BookOpen } from "lucide-react";
 
-const code = `curl https://api.sb0pay.com/v1/payments \\
+const code = `curl -X POST https://pay-be.sb0.tech/api/v1/payments \\
   -H "Authorization: Bearer sb0_live_•••" \\
-  -d amount=250.00 \\
-  -d currency=ILS \\
-  -d customer_email="dana@shop.co"
-# →  { "id": "pay_8k3…", "qr": "https://…", "status": "pending" }`;
+  -H "Content-Type: application/json" \\
+  -d '{"amount":250.00,"currency":"ILS","customerEmail":"dana@shop.co"}'
+# →  { "id": "a1b2c3d4-…", "paymentUrl": "https://…", "status": "pending" }`;
 
 export default function ApiSection() {
   return (
