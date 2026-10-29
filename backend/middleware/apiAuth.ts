@@ -3,9 +3,43 @@ import { apiKeyService } from '../services/apiKey.js';
 import type { ApiKey, PublicErrorResponse } from '../types/index.js';
 
 /**
- * API Key Authentication Middleware
+ * Enforce a resource/action permission inside a route handler.
+ *
+ * Permission checks are done PER HANDLER (not in the auth guard's derive)
+ * because in Elysia 0.8 a plugin's `.derive()` propagates to the enclosing
+ * group, so a per-route permission check placed in the derive leaks onto every
+ * sibling route in the group (this is what forced galaxy:checkout onto
+ * /payments). Authentication is shared; authorization is local to each route.
+ *
+ * Throws the same structured JSON error the guard used to throw, so the
+ * existing onError handlers keep returning the correct 401/403 shapes.
  */
-export const apiKeyAuth = (requiredResource?: string, requiredAction?: string) => {
+export function requirePermission(apiKey: ApiKey | undefined, resource: string, action: string, requestId: string): void {
+  if (!apiKey || !apiKey.userId) {
+    throw new Error(JSON.stringify({
+      error: { code: 'INVALID_API_KEY', message: 'API key authentication failed', type: 'authentication_error' },
+      timestamp: new Date().toISOString(),
+      requestId
+    }));
+  }
+  if (!apiKeyService.hasPermission(apiKey, resource, action)) {
+    throw new Error(JSON.stringify({
+      error: { code: 'INSUFFICIENT_PERMISSIONS', message: `API key does not have permission to ${action} ${resource}`, type: 'authentication_error' },
+      timestamp: new Date().toISOString(),
+      requestId
+    }));
+  }
+}
+
+/**
+ * API Key Authentication Middleware.
+ *
+ * Authenticates the Bearer API key and attaches { apiKey, requestId } to the
+ * context. It no longer enforces resource/action in the derive — callers pass
+ * the required (resource, action) only for documentation/back-compat, and the
+ * actual enforcement happens in each route handler via requirePermission().
+ */
+export const apiKeyAuth = (_requiredResource?: string, _requiredAction?: string) => {
   return new Elysia()
     .derive(async ({ headers, set }) => {
       const requestId = crypto.randomUUID();
@@ -70,28 +104,6 @@ export const apiKeyAuth = (requiredResource?: string, requiredAction?: string) =
           timestamp: new Date().toISOString(),
           requestId
         }));
-      }
-
-      // Check permissions if required
-      if (requiredResource && requiredAction) {
-        const hasPermission = apiKeyService.hasPermission(
-          validation.apiKey, 
-          requiredResource, 
-          requiredAction
-        );
-
-        if (!hasPermission) {
-          set.status = 403;
-          throw new Error(JSON.stringify({
-            error: {
-              code: 'INSUFFICIENT_PERMISSIONS',
-              message: `API key does not have permission to ${requiredAction} ${requiredResource}`,
-              type: 'authentication_error'
-            },
-            timestamp: new Date().toISOString(),
-            requestId
-          }));
-        }
       }
 
       return {

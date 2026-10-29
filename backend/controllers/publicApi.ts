@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { apiKeyAuth, logApiUsage } from '../middleware/apiAuth.js';
+import { apiKeyAuth, logApiUsage, requirePermission } from '../middleware/apiAuth.js';
 import { paymentService } from '../services/payment.js';
 import { regionalCurrency } from '../services/regionalCurrency.js';
 import { userRepository } from '../services/repository.js';
@@ -32,6 +32,7 @@ export const galaxyController = new Elysia({ prefix: '/v1' })
   .use(apiKeyAuth('galaxy', 'checkout'))
   .post('/galaxy/checkout', async ({ body, apiKey, requestId, set }) => {
     const key = apiKey as ApiKey;
+    requirePermission(key, 'galaxy', 'checkout', requestId);
     const input = body as { country?: string; plan?: string; termsAccepted?: boolean; privacyAccepted?: boolean; termsVersion?: string; privacyVersion?: string };
     if (!key?.userId || !key.publicCheckoutOnly) {
       set.status = 403;
@@ -116,6 +117,9 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
         };
         return errorResponse;
       }
+
+      // Enforce the payments:create permission for this route.
+      requirePermission(authApiKey, 'payments', 'create', requestId);
 
       // Enforce payment method restriction
       const requestedMethod: string = paymentData.paymentMethod || 'card';
@@ -377,6 +381,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
   .get('/payments/:id', async ({ params, apiKey, requestId, set }) => {
     try {
       const authApiKey = apiKey as ApiKey;
+      requirePermission(authApiKey, 'payments', 'read', requestId);
       const paymentId = params.id;
 
       // Validate API key is properly set
@@ -465,6 +470,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
   .get('/payments', async ({ query, apiKey, requestId, set }) => {
     try {
       const authApiKey = apiKey as ApiKey;
+      requirePermission(authApiKey, 'payments', 'read', requestId);
       
       // Validate API key is properly set
       if (!authApiKey || !authApiKey.userId) {
@@ -536,6 +542,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
   .post('/payments/:id/refund', async ({ params, body, apiKey, requestId, set }) => {
     try {
       const authApiKey = apiKey as ApiKey;
+      requirePermission(authApiKey, 'payments', 'update', requestId);
       const paymentId = params.id;
       const refundData = body as { amount?: number };
 
@@ -647,6 +654,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
   .post('/payments/:id/cancel', async ({ params, apiKey, requestId, set }) => {
     try {
       const authApiKey = apiKey as ApiKey;
+      requirePermission(authApiKey, 'payments', 'update', requestId);
       const paymentId = params.id;
 
       // Validate API key is properly set
