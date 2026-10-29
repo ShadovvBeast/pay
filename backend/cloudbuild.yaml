@@ -7,7 +7,10 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/sb0pay']
   
-  # Deploy container image to Cloud Run
+  # Deploy container image to Cloud Run.
+  # Deploys WITHOUT taking traffic and under a tag so the new revision can be
+  # tested in isolation; traffic is switched manually after verification. The
+  # previous revision stays live and routable for instant fallback.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -23,10 +26,13 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
+      - '--no-traffic'
+      - '--tag'
+      - 'candidate'
       - '--set-secrets'
       - 'DATABASE_URL=SB0PAY_DATABASE_URL:latest,ALLPAY_API_KEY=ALLPAY_API_KEY:latest,ALLPAY_LOGIN=ALLPAY_LOGIN:latest,JWT_SECRET=JWT_SECRET:latest,JWT_REFRESH_SECRET=JWT_REFRESH_SECRET:latest'
       - '--set-env-vars'
-      - 'NODE_ENV=production,CORS_ORIGIN=https://pay.sb0.tech,FRONTEND_URL=https://pay.sb0.tech'
+      - 'NODE_ENV=production,ALLPAY_API_URL=https://allpay.to/app/?show=getpayment&mode=api11,BACKEND_URL=https://sb0pay-678576192331.us-central1.run.app,CORS_ORIGIN=https://pay.sb0.tech,FRONTEND_URL=https://pay.sb0.tech'
 
 images:
   - 'gcr.io/$PROJECT_ID/sb0pay'
