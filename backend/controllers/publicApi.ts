@@ -15,13 +15,20 @@ import type {
  * Public API Controller
  * Handles API key authenticated requests for external integrations
  */
-export const publicApiController = new Elysia({ prefix: '/v1' })
+/**
+ * SB0S Galaxy fixed-price pre-order checkout.
+ *
+ * Isolated in its own Elysia instance so the apiKeyAuth('galaxy','checkout')
+ * guard is scoped ONLY to this route and does not leak onto /payments. (Elysia
+ * applies a chained .use(derive) guard to sibling routes on the same instance,
+ * which is why this must be a separate mounted app.)
+ *
+ * This route is the only permission granted to the SB0S browser (publishable)
+ * key. Prices, description, return URLs, provider callback, and currency
+ * routing are all fixed server-side here — the client only chooses country + plan.
+ */
+export const galaxyController = new Elysia({ prefix: '/v1' })
   .use(logApiUsage)
-
-  // SB0S Galaxy fixed-price pre-order checkout.
-  // This route is the only permission granted to the SB0S browser (publishable) key.
-  // Prices, description, return URLs, provider callback, and currency routing are
-  // all fixed server-side here — the client only chooses country + plan.
   .use(apiKeyAuth('galaxy', 'checkout'))
   .post('/galaxy/checkout', async ({ body, apiKey, requestId, set }) => {
     const key = apiKey as ApiKey;
@@ -79,7 +86,14 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       set.status = 502;
       return { error: { code: 'CHECKOUT_UNAVAILABLE', message: 'Secure checkout could not be started. Please try again shortly.', type: 'api_error' }, timestamp: new Date().toISOString(), requestId };
     }
-  })
+  });
+
+/**
+ * Public API Controller
+ * Handles API key authenticated requests for external integrations
+ */
+export const publicApiController = new Elysia({ prefix: '/v1' })
+  .use(logApiUsage)
 
   // Create payment endpoint
   .use(apiKeyAuth('payments', 'create'))

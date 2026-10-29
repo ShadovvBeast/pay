@@ -7,7 +7,7 @@ import { db } from './services/database';
 import { authController } from './controllers/auth';
 import { paymentController } from './controllers/payment';
 import { apiKeyController } from './controllers/apiKeys';
-import { publicApiController } from './controllers/publicApi';
+import { publicApiController, galaxyController } from './controllers/publicApi';
 import { docsController } from './controllers/docs';
 import { docsLegacyController } from './controllers/docsLegacy';
 import { walletController } from './controllers/wallet';
@@ -174,7 +174,7 @@ async function startServer() {
       .use(walletController)
       .use(docsLegacyController)
       .use(docsController)
-      .group('/api', (app) => app.use(publicApiController))
+      .group('/api', (app) => app.use(galaxyController).use(publicApiController))
       .listen(config.server.port);
 
     console.log(`🦊 Elysia is running at http://localhost:${app.server?.port}`);
