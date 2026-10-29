@@ -41,6 +41,25 @@ async function startServer() {
         secret: config.jwt.secret
       }))
       .onError(({ code, error, set }) => {
+        // Preserve structured auth errors thrown by apiKeyAuth's derive hook.
+        // Without this, Elysia's outer handler turns them into generic 500s.
+        if (error instanceof Error && typeof error.message === 'string' && error.message.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(error.message);
+            const authCode = parsed?.error?.code;
+            if (authCode === 'MISSING_API_KEY' || authCode === 'INVALID_AUTH_FORMAT' || authCode === 'INVALID_API_KEY') {
+              set.status = 401;
+              return parsed;
+            }
+            if (authCode === 'INSUFFICIENT_PERMISSIONS') {
+              set.status = 403;
+              return parsed;
+            }
+          } catch {
+            // Not a structured auth error; fall through.
+          }
+        }
+
         // Handle validation errors from Elysia
         if (code === 'VALIDATION') {
           set.status = 400;

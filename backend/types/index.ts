@@ -116,10 +116,12 @@ export interface AllPayPaymentRequest {
   login: string;
   order_id: string;
   items: AllPayItem[];
-  amount: number; // Total amount in agorot
+  amount?: number; // Total amount in agorot (api8 only; api11 derives from items)
   currency: string; // ILS, USD, EUR
+  currency_display?: string; // api11: display currency shown to the customer (e.g. UGX)
   lang?: string; // AUTO, AR, EN, HE, RU
-  notifications_url?: string;
+  notifications_url?: string; // api8 webhook field
+  webhook_url?: string; // api11 webhook field
   success_url?: string;
   backlink_url?: string;
   inst?: number; // Max installments (up to 12)
@@ -176,6 +178,9 @@ export interface ApiKey {
   prefix: string; // First 8 chars for identification (e.g., "sb0_live_")
   permissions: ApiKeyPermission[];
   paymentMethod: ApiKeyPaymentMethod;
+  // When true, the key may ONLY create fixed-price Galaxy checkout sessions
+  // (set for the SB0S publishable browser key). All other permissions are ignored.
+  publicCheckoutOnly?: boolean;
   isActive: boolean;
   lastUsedAt?: Date;
   expiresAt?: Date;
@@ -192,8 +197,8 @@ export interface CreateApiKeyData {
 }
 
 export interface ApiKeyPermission {
-  resource: 'payments' | 'transactions' | 'webhooks' | 'profile';
-  actions: ('create' | 'read' | 'update' | 'delete')[];
+  resource: 'payments' | 'transactions' | 'webhooks' | 'profile' | 'galaxy';
+  actions: ('create' | 'read' | 'update' | 'delete' | 'checkout')[];
 }
 
 export interface ApiKeyResponse {
@@ -232,6 +237,8 @@ export interface PublicLineItem {
 export interface PublicCreatePaymentRequest {
   amount: number;
   currency?: string;
+  customerCountry?: string; // ISO 3166-1 alpha-2; when set, drives regional currency routing
+  checkoutConsent?: import('../services/checkoutAgreement').CheckoutConsent; // server-stamped pre-order consent snapshot
   language?: string; // Payment page language: 'he', 'en', 'ar', 'ru', or 'auto'
   description?: string;
   paymentMethod?: 'card' | 'mobile_money' | 'auto'; // 'auto' routes by phone number

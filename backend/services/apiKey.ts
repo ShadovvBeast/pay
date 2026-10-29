@@ -153,6 +153,16 @@ class ApiKeyService {
         updatedAt: apiKeyData.updated_at
       };
 
+      // SB0S Galaxy publishable (browser) key override.
+      // This known public key prefix is locked to the fixed-price Galaxy checkout
+      // flow only: its stored permissions are ignored and it can only enter
+      // /api/v1/galaxy/checkout. publicCheckoutOnly gates the handler.
+      const galaxyPrefix = process.env.SB0S_GALAXY_PUBLISHABLE_KEY_PREFIX || 'sb0_live_dbab14a';
+      if (galaxyPrefix && apiKey.prefix === galaxyPrefix) {
+        apiKey.permissions = [{ resource: 'galaxy', actions: ['checkout'] }];
+        apiKey.publicCheckoutOnly = true;
+      }
+
       return { isValid: true, apiKey };
 
     } catch (error) {

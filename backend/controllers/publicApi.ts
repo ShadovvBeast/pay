@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { apiKeyAuth, logApiUsage } from '../middleware/apiAuth.js';
 import { paymentService } from '../services/payment.js';
+import { regionalCurrency } from '../services/regionalCurrency.js';
 import { userRepository } from '../services/repository.js';
 import type { 
   PublicCreatePaymentRequest,
@@ -16,6 +17,69 @@ import type {
  */
 export const publicApiController = new Elysia({ prefix: '/v1' })
   .use(logApiUsage)
+
+  // SB0S Galaxy fixed-price pre-order checkout.
+  // This route is the only permission granted to the SB0S browser (publishable) key.
+  // Prices, description, return URLs, provider callback, and currency routing are
+  // all fixed server-side here — the client only chooses country + plan.
+  .use(apiKeyAuth('galaxy', 'checkout'))
+  .post('/galaxy/checkout', async ({ body, apiKey, requestId, set }) => {
+    const key = apiKey as ApiKey;
+    const input = body as { country?: string; plan?: string; termsAccepted?: boolean; privacyAccepted?: boolean; termsVersion?: string; privacyVersion?: string };
+    if (!key?.userId || !key.publicCheckoutOnly) {
+      set.status = 403;
+      return { error: { code: 'FORBIDDEN', message: 'This key cannot create Galaxy checkout sessions.', type: 'authentication_error' }, timestamp: new Date().toISOString(), requestId };
+    }
+    if (!input.termsAccepted || !input.privacyAccepted || input.termsVersion !== 'galaxy-preorder-2026-09-27' || input.privacyVersion !== 'sb0s-privacy-2026-09-27') {
+      set.status = 400;
+      return { error: { code: 'CONSENT_REQUIRED', message: 'Accept the current pre-order terms and privacy notice to continue.', type: 'invalid_request' }, timestamp: new Date().toISOString(), requestId };
+    }
+    if (!['IL', 'UG', 'IN', 'US', 'GB', 'CA', 'AU', 'DE', 'FR', 'JP', 'AE'].includes(input.country || '') && !/^[A-Z]{2}$/.test(input.country || '')) {
+      set.status = 400;
+      return { error: { code: 'INVALID_COUNTRY', message: 'Choose a valid country to see the applicable price.', type: 'invalid_request' }, timestamp: new Date().toISOString(), requestId };
+    }
+    if (input.plan !== 'monthly' && input.plan !== 'annual') {
+      set.status = 400;
+      return { error: { code: 'INVALID_PLAN', message: 'Choose a monthly or annual one-time licence.', type: 'invalid_request' }, timestamp: new Date().toISOString(), requestId };
+    }
+
+    const currency = regionalCurrency(input.country!);
+    const prices = currency === 'ILS' ? { monthly: 60, annual: 600 } : { monthly: 80000, annual: 800000 };
+    const amount = prices[input.plan];
+    const merchant = await userRepository.findById(key.userId);
+    if (!merchant) {
+      set.status = 404;
+      return { error: { code: 'MERCHANT_NOT_FOUND', message: 'SB0 Pay merchant configuration is unavailable.', type: 'api_error' }, timestamp: new Date().toISOString(), requestId };
+    }
+
+    try {
+      const result = await paymentService.createPayment(merchant, {
+        amount,
+        currency,
+        customerCountry: input.country,
+        language: input.country === 'IL' ? 'he' : 'en',
+        description: `SB0S Galaxy ${input.plan === 'annual' ? '12-month' : '1-month'} pre-order licence`,
+        paymentMethod: 'card',
+        lineItems: [{ name: `SB0S Galaxy ${input.plan === 'annual' ? '12-month' : '1-month'} pre-order licence`, price: amount, quantity: 1, includesVat: true }],
+        checkoutConsent: {
+          accepted: true,
+          termsVersion: input.termsVersion,
+          privacyVersion: input.privacyVersion,
+          productSchedule: { product: 'SB0S Galaxy', plan: input.plan, oneTimePayment: true, automaticRenewal: false, releaseTarget: 'mid-October 2026 estimate' },
+        },
+        successUrl: 'https://sb0s.com/galaxy/confirmed/',
+        cancelUrl: 'https://sb0s.com/galaxy/#preorder',
+        webhookUrl: `${process.env.BACKEND_URL || 'https://sb0pay-678576192331.us-central1.run.app'}/payments/webhook`,
+        metadata: { product: 'sb0s-galaxy', plan: input.plan, country: input.country },
+      }, key.id);
+      set.status = 201;
+      return { id: result.transaction.id, paymentUrl: result.paymentUrl, amount, currency, plan: input.plan, provider: 'sb0-pay', next: 'allpay-hosted-checkout' };
+    } catch (error) {
+      console.error('Galaxy checkout creation failed', error instanceof Error ? error.message : 'unknown');
+      set.status = 502;
+      return { error: { code: 'CHECKOUT_UNAVAILABLE', message: 'Secure checkout could not be started. Please try again shortly.', type: 'api_error' }, timestamp: new Date().toISOString(), requestId };
+    }
+  })
 
   // Create payment endpoint
   .use(apiKeyAuth('payments', 'create'))
@@ -40,7 +104,7 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       }
 
       // Enforce payment method restriction
-      const requestedMethod = paymentData.paymentMethod || 'card';
+      const requestedMethod: string = paymentData.paymentMethod || 'card';
       const keyMethod = authApiKey.paymentMethod || 'card';
 
       if (keyMethod === 'card' && (requestedMethod === 'mobile_money' || requestedMethod === 'mtn_momo' || requestedMethod === 'airtel_money' || requestedMethod === 'mpesa')) {
@@ -88,8 +152,11 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
         return errorResponse;
       }
 
-      // Use user's currency if not specified
-      const currency = paymentData.currency || currentUser.merchantConfig.currency;
+      // Use user's currency if not specified. When a customerCountry is given,
+      // route the currency regionally (IL => ILS, else UGX).
+      const currency = paymentData.currency || (paymentData.customerCountry
+        ? regionalCurrency(paymentData.customerCountry)
+        : currentUser.merchantConfig.currency);
       
       // Use user's language if not specified
       const language = paymentData.language || currentUser.merchantConfig.language;
@@ -154,6 +221,8 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       // Create enhanced payment data
       const enhancedPaymentData = {
         amount: paymentData.amount,
+        customerCountry: paymentData.customerCountry,
+        checkoutConsent: paymentData.checkoutConsent,
         currency: currency,
         language: language,
         description: paymentData.description,
@@ -205,6 +274,10 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
       
       // Handle specific error types
       if (error instanceof Error) {
+        if (/^(Invalid |Unsupported card currency)/.test(error.message)) {
+          set.status = 400;
+          return { error: { code: 'INVALID_PAYMENT_CONFIGURATION', message: error.message, type: 'invalid_request' }, timestamp: new Date().toISOString(), requestId };
+        }
         if (error.message.includes('Amount must be') || error.message.includes('Amount exceeds')) {
           set.status = 400;
           const errorResponse: PublicErrorResponse = {
@@ -250,6 +323,13 @@ export const publicApiController = new Elysia({ prefix: '/v1' })
     body: t.Object({
       amount: t.Number({ minimum: 0.01, maximum: 999999.99 }),
       currency: t.Optional(t.String({ pattern: '^[A-Z]{3}$' })),
+      customerCountry: t.Optional(t.String({ pattern: '^[A-Z]{2}$' })),
+      checkoutConsent: t.Optional(t.Object({
+        accepted: t.Literal(true),
+        termsVersion: t.String({ minLength: 1, maxLength: 100 }),
+        privacyVersion: t.String({ minLength: 1, maxLength: 100 }),
+        productSchedule: t.Record(t.String(), t.Unknown())
+      })),
       language: t.Optional(t.String({ pattern: '^(he|en|ar|ru|auto)$' })),
       description: t.Optional(t.String({ maxLength: 255 })),
       paymentMethod: t.Optional(t.String({ pattern: '^(card|mobile_money|auto)$' })),

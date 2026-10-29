@@ -4,6 +4,8 @@ import { providerRegistry } from './providerRegistry.js';
 import { transactionRepository } from './repository.js';
 import { walletService } from './wallet.js';
 import { db } from './database.js';
+import { regionalCurrency, validateCardCurrency } from './regionalCurrency.js';
+import { agreementSnapshot, type CheckoutConsent } from './checkoutAgreement.js';
 import type {
   User,
   Transaction,
@@ -16,6 +18,8 @@ import type { MobileMoneyCallbackPayload } from '../types/mobileMoney.js';
 export interface CreatePaymentRequest {
   amount: number;
   currency?: string;
+  customerCountry?: string;
+  checkoutConsent?: CheckoutConsent;
   language?: string;
   description?: string;
   paymentMethod?: 'card' | 'mobile_money' | 'auto';
@@ -211,16 +215,38 @@ export class PaymentService {
     request: CreatePaymentRequest,
     apiKeyId?: string
   ): Promise<PaymentCreationResult> {
+    // Resolve the display currency the customer is quoted in. UGX is a display
+    // currency only; AllPay settles cards in ILS/USD/EUR, so UGX card charges
+    // settle in ILS while the customer still sees UGX.
+    const displayCurrency = request.currency || user.merchantConfig.currency || 'ILS';
+    const settlementCurrency = displayCurrency === 'UGX' ? 'ILS' : displayCurrency;
+    validateCardCurrency(settlementCurrency);
+
+    // Stamp a server-timestamped consent snapshot into metadata when present
+    // (used by the SB0S Galaxy pre-order flow).
+    const metadata: Record<string, any> = { ...request.metadata };
+    if (displayCurrency === 'UGX') metadata.currencyDisplay = 'UGX';
+    metadata.settlementCurrency = settlementCurrency;
+    if (request.checkoutConsent) {
+      metadata.checkoutAgreement = agreementSnapshot(
+        request.checkoutConsent,
+        request.amount,
+        displayCurrency,
+        request.customerCountry
+      );
+    }
+
     // Create payment with AllPay
     const allPayResponse = await allPayClient.createPayment(
       request.amount,
       {
         ...user.merchantConfig,
-        currency: request.currency || user.merchantConfig.currency,
+        currency: settlementCurrency,
         language: request.language || user.merchantConfig.language
       },
       request.description,
       {
+        currencyDisplay: displayCurrency === 'UGX' ? 'UGX' : undefined,
         lineItems: request.lineItems,
         customerEmail: request.customerEmail,
         customerName: request.customerName,
@@ -248,6 +274,23 @@ export class PaymentService {
       );
     }
 
+    // Harden against an untrusted checkout destination: only accept an https
+    // AllPay-hosted URL.
+    try {
+      const parsed = new URL(paymentUrl);
+      const host = parsed.hostname.toLowerCase();
+      const trusted = parsed.protocol === 'https:' &&
+        (host === 'allpay.to' || host.endsWith('.allpay.to') ||
+         host === 'allpay.co.il' || host.endsWith('.allpay.co.il'));
+      if (!trusted) {
+        throw new Error('AllPay returned an untrusted checkout destination');
+      }
+    } catch (e) {
+      throw e instanceof Error && e.message.includes('untrusted')
+        ? e
+        : new Error('AllPay returned an untrusted checkout destination');
+    }
+
     // Store the AllPay order ID for status checking
     const allPayOrderId = allPayResponse.order_id;
 
@@ -255,7 +298,7 @@ export class PaymentService {
     const transaction = await transactionRepository.create({
       userId: user.id,
       amount: request.amount,
-      currency: user.merchantConfig.currency || 'ILS',
+      currency: displayCurrency,
       paymentUrl: paymentUrl,
       allpayTransactionId: allPayOrderId,
       paymentMethod: 'card',
@@ -275,7 +318,7 @@ export class PaymentService {
       successUrl: request.successUrl,
       cancelUrl: request.cancelUrl,
       webhookUrl: request.webhookUrl,
-      metadata: request.metadata,
+      metadata,
       apiKeyId: apiKeyId
     });
 

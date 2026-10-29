@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import type {
     AllPayPaymentRequest,
+    AllPayItem,
     AllPayPaymentResponse,
     AllPayWebhookPayload,
     AllPayApiError,
@@ -9,6 +10,8 @@ import type {
 
 export class AllPayApiClient {
     private readonly apiUrl: string;
+    private readonly apiMode: 'api8' | 'api11';
+    private readonly legacySignatureFormat: boolean;
     private readonly login: string;
     private readonly apiKey: string;
     private readonly maxRetries: number = 3;
@@ -16,8 +19,26 @@ export class AllPayApiClient {
     private readonly rateLimitDelay: number = 100; // 100ms between requests
 
     constructor() {
-        // AllPay API URL from official documentation
-        this.apiUrl = process.env.ALLPAY_API_URL || 'https://allpay.to/app/?show=getpayment&mode=api8';
+        // AllPay API URL from official documentation.
+        // Defaults to api11; set ALLPAY_API_URL with mode=api8 (and optionally
+        // ALLPAY_SIGNATURE_FORMAT=legacy) to fall back to the api8 wire format.
+        const defaultApiUrl = 'https://allpay.to/app/?show=getpayment&mode=api11';
+        let configuredApiUrl = defaultApiUrl;
+        let configuredMode: 'api8' | 'api11' = 'api11';
+        try {
+            const candidate = new URL(process.env.ALLPAY_API_URL || defaultApiUrl);
+            if (['allpay.to', 'allpay.co.il', 'www.allpay.co.il'].includes(candidate.hostname)
+                && candidate.searchParams.get('show') === 'getpayment') {
+                const mode = candidate.searchParams.get('mode');
+                if (mode === 'api8' || mode === 'api11') {
+                    configuredMode = mode;
+                    configuredApiUrl = candidate.toString();
+                }
+            }
+        } catch { /* A malformed endpoint falls back to the supported v11 API. */ }
+        this.apiUrl = configuredApiUrl;
+        this.apiMode = configuredMode;
+        this.legacySignatureFormat = configuredMode === 'api8' || process.env.ALLPAY_SIGNATURE_FORMAT === 'legacy';
         this.login = process.env.ALLPAY_LOGIN || '';
         this.apiKey = process.env.ALLPAY_API_KEY || '';
 
@@ -51,6 +72,7 @@ export class AllPayApiClient {
             notificationsUrl?: string;
             successUrl?: string;
             backlinkUrl?: string;
+            currencyDisplay?: 'UGX';
         }
     ): Promise<AllPayPaymentResponse & { order_id: string }> {
         return Promise.race([
@@ -82,21 +104,23 @@ export class AllPayApiClient {
             notificationsUrl?: string;
             successUrl?: string;
             backlinkUrl?: string;
+            currencyDisplay?: 'UGX';
         }
     ): Promise<AllPayPaymentResponse & { order_id: string }> {
         // Create items array - use line items if provided, otherwise create single item
-        // IMPORTANT: AllPay expects item prices in main currency units (shekels), NOT agorot
-        // Only the total 'amount' field should be in agorot
+        // API v11 expects the item price in the payment currency, or in
+        // currency_display when supplied. The payment page performs any
+        // display-to-settlement conversion and shows both amounts.
         const items: AllPayItem[] = options?.lineItems && options.lineItems.length > 0
             ? options.lineItems.map(item => ({
-                name: item.name,
-                price: item.price, // Keep in shekels (main currency unit)
+            name: item.name,
+                price: item.price,
                 qty: item.quantity,
                 vat: item.includesVat === false ? 3 : 1 // 3 = 0% VAT, 1 = 18% VAT included
             }))
             : [{
                 name: description || 'Payment',
-                price: amount, // Keep in shekels (main currency unit)
+                price: amount,
                 qty: 1,
                 vat: 1 // 18% VAT included
             }];
@@ -108,14 +132,15 @@ export class AllPayApiClient {
             login: this.login,
             order_id: orderId,
             items: items,
-            amount: Math.round(amount * 100), // Amount in agorot
             currency: merchantConfig.currency || 'ILS',
             lang: this.mapLanguage(merchantConfig.language || 'he'),
-            notifications_url: options?.notificationsUrl || `${process.env.BACKEND_URL || 'http://localhost:2894'}/payments/webhook`,
+            webhook_url: options?.notificationsUrl || `${process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://sb0pay-678576192331.us-central1.run.app' : 'http://localhost:2894')}/payments/webhook`,
             success_url: options?.successUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success`,
             backlink_url: options?.backlinkUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/failure`,
             expire: options?.expiresAt ? Math.floor(options.expiresAt.getTime() / 1000) : Math.floor(Date.now() / 1000) + 3600 // Default 1 hour
         };
+
+        if (options?.currencyDisplay) request.currency_display = options.currencyDisplay;
 
         // Add optional fields
         if (options?.customerName) request.client_name = options.customerName;
@@ -133,6 +158,10 @@ export class AllPayApiClient {
         if (options?.showBit !== undefined) request.show_bit = options.showBit;
         if (options?.customField1) request.add_field_1 = options.customField1;
         if (options?.customField2) request.add_field_2 = options.customField2;
+
+        if (!request.webhook_url?.startsWith('https://')) {
+            throw new Error('A public HTTPS SB0 Pay webhook URL is required in production');
+        }
 
         // Generate SHA256 signature
         request.sign = this.getApiSignature(request, this.apiKey);
@@ -190,7 +219,7 @@ export class AllPayApiClient {
     }
 
     private async _getPaymentStatusInternal(orderId: string): Promise<AllPayPaymentResponse> {
-        const statusUrl = 'https://allpay.to/app/?show=paymentstatus&mode=api8';
+        const statusUrl = `https://allpay.to/app/?show=paymentstatus&mode=${this.apiMode}`;
 
         const request = {
             login: this.login,
@@ -240,8 +269,8 @@ export class AllPayApiClient {
                 if (attempt > 1) {
                     await this.sleep(this.rateLimitDelay);
                 }
-                console.log('Making JSON request to AllPay:', JSON.stringify(request, null, 2));
-                console.log('API URL:', this.apiUrl);
+                // Do not log payment payloads: they include customer PII and a
+                // merchant-bound signature. Keep the provider URL out of logs too.
 
                 const requestOptions: RequestInit = {
                     method: 'POST',
@@ -254,17 +283,14 @@ export class AllPayApiClient {
                 };
 
                 const response = await fetch(this.apiUrl, requestOptions);
-                console.log('Response status:', response.status, response.statusText);
-
                 const responseText = await response.text();
-                console.log('Response body:', responseText);
 
                 let responseData: any;
                 try {
                     responseData = JSON.parse(responseText);
                 } catch (parseError) {
-                    console.error('Failed to parse response as JSON:', parseError);
-                    throw new Error(`Invalid JSON response: ${responseText}`);
+                    console.error('AllPay returned a non-JSON response');
+                    throw new Error('AllPay returned an invalid response');
                 }
 
                 // Check if the response contains an error
@@ -276,7 +302,7 @@ export class AllPayApiClient {
                     error.statusCode = response.status;
                     error.response = responseData;
 
-                    console.error('AllPay API returned error:', responseData);
+                    console.error('AllPay API returned an error response', { code: error.code, status: error.statusCode });
                     throw error;
                 }
 
@@ -332,7 +358,9 @@ export class AllPayApiClient {
 
     /**
      * Generate SHA256 signature for AllPay API requests
-     * Based on AllPay documentation - exact implementation
+     * Based on AllPay documentation - exact implementation.
+     * api11 includes only non-empty string values; api8 (legacy) includes any
+     * non-empty stringified value.
      */
     private getApiSignature(params: Record<string, any>, apiKey: string): string {
         // Step 1: Remove the sign parameter from the request
@@ -342,6 +370,14 @@ export class AllPayApiClient {
         // Step 2 & 3: Sort keys alphabetically and collect non-empty values
         const sortedKeys = Object.keys(paramsCopy).sort();
         const chunks: string[] = [];
+
+        const appendValue = (value: unknown) => {
+            if (!this.legacySignatureFormat) {
+                if (typeof value === 'string' && value.trim() !== '') chunks.push(value);
+                return;
+            }
+            if (value !== null && value !== undefined && String(value).trim() !== '') chunks.push(String(value));
+        };
 
         for (const key of sortedKeys) {
             const value = paramsCopy[key];
@@ -354,19 +390,12 @@ export class AllPayApiClient {
                         const itemKeys = Object.keys(item).sort();
                         for (const itemKey of itemKeys) {
                             const itemValue = item[itemKey];
-                            if (itemValue !== null && itemValue !== undefined && String(itemValue).trim() !== '') {
-                                chunks.push(String(itemValue));
-                            }
+                            appendValue(itemValue);
                         }
-                    } else if (item !== null && item !== undefined && String(item).trim() !== '') {
-                        chunks.push(String(item));
-                    }
+                    } else appendValue(item);
                 }
             } else {
-                // Handle regular values
-                if (value !== null && value !== undefined && String(value).trim() !== '') {
-                    chunks.push(String(value));
-                }
+                appendValue(value);
             }
         }
 
@@ -374,14 +403,9 @@ export class AllPayApiClient {
         // Step 5: Append API key with colon
         const signature = chunks.join(':') + ':' + apiKey;
 
-        console.log('Signature generation debug:');
-        console.log('Sorted keys:', sortedKeys);
-        console.log('Chunks:', chunks);
-        console.log('String to hash:', signature);
-
+        // Never log the canonical string: it ends with the merchant API key.
         // Step 6: Apply SHA256 algorithm
         const hash = crypto.createHash('sha256').update(signature, 'utf8').digest('hex');
-        console.log('Generated signature:', hash);
 
         return hash;
     }
@@ -434,22 +458,17 @@ export class AllPayApiClient {
         order_id: string;
         status: number;
     }> {
-        const refundUrl = 'https://allpay.to/app/?show=refund&mode=api8';
-
-        // AllPay expects amounts in minor units (agorot/cents)
-        const amountMinor = Math.round(amount * 100);
+        const refundUrl = `https://allpay.to/app/?show=refund&mode=${this.apiMode}`;
 
         const request: any = {
             login: this.login,
             order_id: orderId,
-            amount: amountMinor
+            amount
         };
 
         // Add items for partial refund if provided
         if (items) {
-            request.items = items.map((it) => ({
-                amount: Math.round(it.amount * 100)
-            }));
+            request.items = items.map((it) => ({ amount: it.amount }));
         }
 
         // Generate signature
@@ -460,7 +479,7 @@ export class AllPayApiClient {
         };
 
         try {
-            console.log('Making refund request to AllPay (minor units):', JSON.stringify(requestWithSignature, null, 2));
+            // Never log signed refund payloads or customer payment details.
 
             const response = await fetch(refundUrl, {
                 method: 'POST',
@@ -477,7 +496,7 @@ export class AllPayApiClient {
             }
 
             const responseData = await response.json() as any;
-            console.log('AllPay refund response:', responseData);
+            // Provider response may contain customer and payment details.
 
             // Check for errors
             if (responseData.error_code || responseData.error_msg) {
